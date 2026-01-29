@@ -416,6 +416,7 @@ Rank 2 (requires Avoidance): After Agility and Avoidance trigger, must reroll al
     qualityType: ['static', 'attack', 'trigger'],
     dpCost: 2,
     maxRanks: 2,
+    singleRankPerChoice: true, // Each specialization can only be taken once
     prerequisites: ['Data Optimization'],
     stageRequirement: 'ultimate',
     description: 'Advanced specialization based on your Data Optimization. Rank 2 requires Ultra.',
@@ -537,6 +538,7 @@ Rank 2 (requires Avoidance): After Agility and Avoidance trigger, must reroll al
     qualityType: 'static',
     dpCost: 1,
     maxRanks: 5,
+    singleRankPerChoice: true, // Each movement type can only be taken once
     prerequisites: [],
     firstRankDiscountAtStage: { stage: 'champion', discount: 1 }, // Champion+ gets 1 DP discount
     description: 'Gain a new movement type. Champion+ gets 1 DP discount on first rank.',
@@ -557,6 +559,7 @@ Rank 2 (requires Avoidance): After Agility and Avoidance trigger, must reroll al
     qualityType: 'static',
     dpCost: 2,
     maxRanks: 6,
+    singleRankPerChoice: true, // Each advanced mobility can only be taken once
     prerequisites: ['Extra Movement'],
     description: 'Enhance an Extra Movement type.',
     effect: `Choose an Extra Movement type you have. Gain enhanced benefits.`,
@@ -754,7 +757,8 @@ Rank 2 (requires Avoidance): After Agility and Avoidance trigger, must reroll al
     category: 'offensive',
     qualityType: ['trigger', 'attack'],
     dpCost: 2,
-    maxRanks: 1,
+    maxRanks: 6, // Can take each type once (6 types available)
+    singleRankPerChoice: true, // Each area type can only be taken once
     prerequisites: [],
     description: 'Add an area tag to an attack.',
     effect: `Apply an [Area Tag] to an Attack. Targets get +RAM to Dodge. Can use as single-target without penalty.`,
