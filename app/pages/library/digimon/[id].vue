@@ -534,6 +534,14 @@ function handleAddQuality(quality: Quality) {
   form.qualities = [...form.qualities, quality]
 }
 
+function handleUpdateQualityRanks(index: number, ranks: number) {
+  if (!form.qualities[index]) return
+  // Create a new array with the updated quality
+  form.qualities = form.qualities.map((q, i) =>
+    i === index ? { ...q, ranks } : q
+  )
+}
+
 // Map quality ID to tag pattern for attack filtering
 function getTagPatternForQuality(qualityId: string): string | null {
   const patterns: Record<string, string> = {
@@ -1138,6 +1146,7 @@ async function handleSubmit() {
           :current-qualities="form.qualities"
           @add="handleAddQuality"
           @remove="removeQuality"
+          @update-ranks="handleUpdateQualityRanks"
         />
       </div>
 
