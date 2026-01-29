@@ -5,7 +5,8 @@ definePageMeta({
   title: 'Digimon',
 })
 
-const { digimonList, loading, error, fetchDigimon, deleteDigimon, calculateDerivedStats } = useDigimon()
+const router = useRouter()
+const { digimonList, loading, error, fetchDigimon, deleteDigimon, copyDigimon, calculateDerivedStats } = useDigimon()
 const { tamers, fetchTamers } = useTamers()
 
 const filter = ref<'all' | 'partners' | 'enemies'>('all')
@@ -33,6 +34,13 @@ onMounted(async () => {
 async function handleDelete(id: string, name: string) {
   if (confirm(`Are you sure you want to delete ${name}?`)) {
     await deleteDigimon(id)
+  }
+}
+
+async function handleCopy(digimon: typeof digimonList.value[0]) {
+  const copy = await copyDigimon(digimon)
+  if (copy) {
+    router.push(`/library/digimon/${copy.id}`)
   }
 }
 
@@ -198,6 +206,13 @@ function getAttributeColor(attr: string): string {
             >
               Edit
             </NuxtLink>
+            <button
+              class="px-3 py-1.5 text-sm bg-cyan-900/30 hover:bg-cyan-900/50
+                     text-cyan-400 rounded transition-colors"
+              @click="handleCopy(digimon)"
+            >
+              Copy
+            </button>
             <button
               class="px-3 py-1.5 text-sm bg-red-900/30 hover:bg-red-900/50
                      text-red-400 rounded transition-colors"
