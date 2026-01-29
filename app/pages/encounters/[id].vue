@@ -36,6 +36,7 @@ const { tamers, fetchTamers, calculateDerivedStats: calcTamerStats } = useTamers
 const showAddParticipant = ref(false)
 const selectedEntityType = ref<'digimon' | 'tamer'>('digimon')
 const selectedEntityId = ref('')
+const addQuantity = ref(1)
 
 // Entity lookup maps
 const digimonMap = computed(() => {
@@ -109,47 +110,53 @@ function getEntityDetails(participant: CombatParticipant) {
   }
 }
 
-// Add participant handler
+// Add participant handler - supports adding multiple of the same entity
 async function handleAddParticipant() {
   if (!currentEncounter.value || !selectedEntityId.value) return
 
-  let initiative = 0
-  let initiativeRoll = 0
-  let maxWounds = 5
+  const quantity = addQuantity.value || 1
 
-  if (selectedEntityType.value === 'digimon') {
-    const digimon = digimonMap.value.get(selectedEntityId.value)
-    if (digimon) {
-      const result = rollDigimonInitiative(digimon)
-      initiative = result.total
-      initiativeRoll = result.roll
-      const derived = calcDigimonStats(digimon)
-      maxWounds = derived.woundBoxes
+  for (let i = 0; i < quantity; i++) {
+    let initiative = 0
+    let initiativeRoll = 0
+    let maxWounds = 5
+
+    if (selectedEntityType.value === 'digimon') {
+      const digimon = digimonMap.value.get(selectedEntityId.value)
+      if (digimon) {
+        const result = rollDigimonInitiative(digimon)
+        initiative = result.total
+        initiativeRoll = result.roll
+        const derived = calcDigimonStats(digimon)
+        maxWounds = derived.woundBoxes
+      }
+    } else {
+      const tamer = tamerMap.value.get(selectedEntityId.value)
+      if (tamer) {
+        // Tamer initiative: 3d6 + Agility
+        initiativeRoll = Math.floor(Math.random() * 6) + 1 +
+          Math.floor(Math.random() * 6) + 1 +
+          Math.floor(Math.random() * 6) + 1
+        initiative = initiativeRoll + tamer.attributes.agility
+        const derived = calcTamerStats(tamer)
+        maxWounds = derived.woundBoxes
+      }
     }
-  } else {
-    const tamer = tamerMap.value.get(selectedEntityId.value)
-    if (tamer) {
-      // Tamer initiative: 3d6 + Agility
-      initiativeRoll = Math.floor(Math.random() * 6) + 1 +
-        Math.floor(Math.random() * 6) + 1 +
-        Math.floor(Math.random() * 6) + 1
-      initiative = initiativeRoll + tamer.attributes.agility
-      const derived = calcTamerStats(tamer)
-      maxWounds = derived.woundBoxes
-    }
+
+    const participant = createParticipant(
+      selectedEntityType.value,
+      selectedEntityId.value,
+      initiative,
+      initiativeRoll,
+      maxWounds
+    )
+
+    await addParticipant(currentEncounter.value.id, participant)
   }
 
-  const participant = createParticipant(
-    selectedEntityType.value,
-    selectedEntityId.value,
-    initiative,
-    initiativeRoll,
-    maxWounds
-  )
-
-  await addParticipant(currentEncounter.value.id, participant)
   showAddParticipant.value = false
   selectedEntityId.value = ''
+  addQuantity.value = 1
 }
 
 // Remove participant
@@ -440,22 +447,9 @@ onMounted(async () => {
   ])
 })
 
-// Available entities to add (not already in encounter)
-const availableDigimon = computed(() => {
-  if (!currentEncounter.value) return digimonList.value
-  const participantIds = (currentEncounter.value.participants as CombatParticipant[])
-    .filter((p) => p.type === 'digimon')
-    .map((p) => p.entityId)
-  return digimonList.value.filter((d) => !participantIds.includes(d.id))
-})
-
-const availableTamers = computed(() => {
-  if (!currentEncounter.value) return tamers.value
-  const participantIds = (currentEncounter.value.participants as CombatParticipant[])
-    .filter((p) => p.type === 'tamer')
-    .map((p) => p.entityId)
-  return tamers.value.filter((t) => !participantIds.includes(t.id))
-})
+// Available entities to add (all entities - can add multiples)
+const availableDigimon = computed(() => digimonList.value)
+const availableTamers = computed(() => tamers.value)
 
 function getStanceColor(stance: string) {
   const colors: Record<string, string> = {
@@ -894,8 +888,36 @@ async function handleUpdateHazard(hazard: Hazard) {
                   </option>
                 </template>
               </select>
+            </div>
+
+            <div class="mb-6">
+              <label class="block text-sm text-digimon-dark-400 mb-2">Quantity</label>
+              <div class="flex items-center gap-3">
+                <button
+                  type="button"
+                  class="w-10 h-10 bg-digimon-dark-700 hover:bg-digimon-dark-600 rounded-lg text-white font-bold"
+                  @click="addQuantity = Math.max(1, addQuantity - 1)"
+                >
+                  -
+                </button>
+                <input
+                  v-model.number="addQuantity"
+                  type="number"
+                  min="1"
+                  max="20"
+                  class="w-20 bg-digimon-dark-700 border border-digimon-dark-600 rounded-lg px-3 py-2
+                         text-white text-center focus:border-digimon-orange-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  class="w-10 h-10 bg-digimon-dark-700 hover:bg-digimon-dark-600 rounded-lg text-white font-bold"
+                  @click="addQuantity = Math.min(20, addQuantity + 1)"
+                >
+                  +
+                </button>
+              </div>
               <p class="text-xs text-digimon-dark-400 mt-2">
-                Initiative will be rolled automatically (3d6 + Agility)
+                Each will roll initiative separately (3d6 + Agility)
               </p>
             </div>
 
@@ -906,7 +928,7 @@ async function handleUpdateHazard(hazard: Hazard) {
                        text-white px-4 py-2 rounded-lg font-semibold transition-colors"
                 @click="handleAddParticipant"
               >
-                Add & Roll Initiative
+                Add {{ addQuantity > 1 ? `${addQuantity}x` : '' }} & Roll Initiative
               </button>
               <button
                 class="flex-1 bg-digimon-dark-700 hover:bg-digimon-dark-600 text-white px-4 py-2
