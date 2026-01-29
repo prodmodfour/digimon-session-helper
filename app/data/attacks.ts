@@ -1,510 +1,926 @@
-// Pre-built attack database for common Digimon attacks - DDA 1.4 format
-// GMs can select from these when creating Digimon
-// Attacks have: [Range] + [Type] + quality-based tags + optional effect + description
+// Pre-built attack database for canonical Digimon attacks - DDA 1.4 format
+// Attacks require the Digimon to have the appropriate qualities for their tags
+// Sources: Digimon Adventure, Adventure 02, Tamers anime
 
 export interface AttackTemplate {
   id: string
   name: string
-  range: 'melee' | 'ranged' // [Melee] or [Ranged] - free tag
-  type: 'damage' | 'support' // [Damage] or [Support] - free tag
-  tags: string[] // Quality-based tags (e.g., "Weapon II", "Area Attack: Burst")
-  effect?: string // Optional effect (e.g., "Poison 3", "Paralysis")
-  description: string // Flavor text
+  range: 'melee' | 'ranged'
+  type: 'damage' | 'support'
+  tags: string[] // Quality-based tags - require owning the quality
+  effect?: string // Requires effect quality
+  description: string
   stage: 'any' | 'fresh' | 'in-training' | 'rookie' | 'champion' | 'ultimate' | 'mega' | 'ultra'
+  digimon?: string // Which Digimon uses this attack
 }
 
 export const ATTACK_DATABASE: AttackTemplate[] = [
-  // === FRESH STAGE ===
+  // ==========================================
+  // FRESH STAGE
+  // ==========================================
   {
     id: 'bubble-blow',
     name: 'Bubble Blow',
     range: 'ranged',
     type: 'damage',
     tags: [],
-    description: 'Shoots harmless bubbles at the target.',
+    description: 'Produces bubbles from its mouth to intimidate opponents.',
     stage: 'fresh',
-  },
-  {
-    id: 'san-no-awa',
-    name: 'San no Awa',
-    range: 'ranged',
-    type: 'damage',
-    tags: [],
-    effect: 'Poison 1',
-    description: 'Spits out acidic bubbles.',
-    stage: 'fresh',
+    digimon: 'Botamon, Punimon, Poyomon, etc.',
   },
 
-  // === IN-TRAINING STAGE ===
+  // ==========================================
+  // IN-TRAINING STAGE
+  // ==========================================
   {
-    id: 'tackle',
-    name: 'Tackle',
-    range: 'melee',
-    type: 'damage',
-    tags: [],
-    description: 'A basic charging attack.',
-    stage: 'in-training',
-  },
-  {
-    id: 'acid-bubbles',
-    name: 'Acid Bubbles',
+    id: 'bubble-blow-in-training',
+    name: 'Bubble Blow',
     range: 'ranged',
     type: 'damage',
     tags: [],
-    effect: 'Poison 1',
-    description: 'Shoots acidic bubbles that sting on contact.',
+    description: 'Fires bubbles from its mouth.',
     stage: 'in-training',
-  },
-  {
-    id: 'small-fire',
-    name: 'Small Fire',
-    range: 'ranged',
-    type: 'damage',
-    tags: [],
-    description: 'Breathes a small flame.',
-    stage: 'in-training',
-  },
-  {
-    id: 'tail-slap',
-    name: 'Tail Slap',
-    range: 'melee',
-    type: 'damage',
-    tags: [],
-    description: 'Slaps the target with its tail.',
-    stage: 'in-training',
+    digimon: 'Koromon, Tsunomon, Tokomon, etc.',
   },
 
-  // === ROOKIE STAGE ===
+  // ==========================================
+  // ROOKIE STAGE - Digimon Adventure
+  // ==========================================
+  // Agumon
   {
     id: 'pepper-breath',
     name: 'Pepper Breath',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon I'],
-    description: 'Spits a ball of flame at the enemy.',
+    tags: [],
+    description: 'Spits a ball of flame from its mouth.',
     stage: 'rookie',
+    digimon: 'Agumon',
   },
+  {
+    id: 'claw-attack',
+    name: 'Claw Attack',
+    range: 'melee',
+    type: 'damage',
+    tags: [],
+    description: 'Attacks with its claws.',
+    stage: 'rookie',
+    digimon: 'Agumon',
+  },
+
+  // Gabumon
   {
     id: 'blue-blaster',
     name: 'Blue Blaster',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon I'],
-    description: 'Fires a stream of blue flames.',
+    tags: [],
+    description: 'Fires a stream of blue flames from its mouth.',
     stage: 'rookie',
+    digimon: 'Gabumon',
   },
+  {
+    id: 'horn-attack',
+    name: 'Horn Attack',
+    range: 'melee',
+    type: 'damage',
+    tags: [],
+    description: 'Attacks with its horn.',
+    stage: 'rookie',
+    digimon: 'Gabumon',
+  },
+
+  // Biyomon
   {
     id: 'spiral-twister',
     name: 'Spiral Twister',
     range: 'ranged',
     type: 'damage',
-    tags: ['Certain Strike'],
-    description: 'Creates a spiral of green flames.',
+    tags: [],
+    description: 'Creates a spiraling flame that hits the opponent.',
     stage: 'rookie',
+    digimon: 'Biyomon',
   },
+
+  // Tentomon
   {
-    id: 'super-thunder-strike',
-    name: 'Super Thunder Strike',
+    id: 'super-shocker',
+    name: 'Super Shocker',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon I'],
-    effect: 'Paralysis',
-    description: 'Releases an electric shock.',
+    tags: [],
+    description: 'Fires an electric bolt from its antennae.',
     stage: 'rookie',
+    digimon: 'Tentomon',
   },
+
+  // Palmon
   {
     id: 'poison-ivy',
     name: 'Poison Ivy',
     range: 'melee',
     type: 'damage',
     tags: [],
-    effect: 'Poison 2',
-    description: 'Attacks with poisonous vines.',
+    effect: 'Poison',
+    description: 'Entangles the enemy with poisonous vines.',
     stage: 'rookie',
+    digimon: 'Palmon',
   },
-  {
-    id: 'boom-bubble',
-    name: 'Boom Bubble',
-    range: 'ranged',
-    type: 'damage',
-    tags: ['Certain Strike'],
-    description: 'Fires a compressed air bubble.',
-    stage: 'rookie',
-  },
-  {
-    id: 'lightning-paw',
-    name: 'Lightning Paw',
-    range: 'melee',
-    type: 'damage',
-    tags: ['Weapon I', 'Certain Strike'],
-    description: 'A lightning-fast punch.',
-    stage: 'rookie',
-  },
+
+  // Gomamon
   {
     id: 'marching-fishes',
     name: 'Marching Fishes',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon II', 'Area Attack: Burst'],
-    description: 'Summons a school of fish to attack multiple targets.',
+    tags: ['Area Attack: Burst'],
+    description: 'Summons a school of fish to attack.',
     stage: 'rookie',
+    digimon: 'Gomamon',
   },
+
+  // Patamon
+  {
+    id: 'boom-bubble',
+    name: 'Boom Bubble',
+    range: 'ranged',
+    type: 'damage',
+    tags: [],
+    description: 'Shoots a ball of compressed air.',
+    stage: 'rookie',
+    digimon: 'Patamon',
+  },
+
+  // Gatomon (Rookie-level stats in Adventure)
+  {
+    id: 'lightning-paw',
+    name: 'Lightning Paw',
+    range: 'melee',
+    type: 'damage',
+    tags: ['Certain Strike I'],
+    description: 'A lightning-fast punch.',
+    stage: 'rookie',
+    digimon: 'Gatomon',
+  },
+  {
+    id: 'cats-eye-hypnotism',
+    name: "Cat's Eye Hypnotism",
+    range: 'ranged',
+    type: 'support',
+    tags: [],
+    effect: 'Confuse',
+    description: 'Hypnotizes the enemy with its eyes.',
+    stage: 'rookie',
+    digimon: 'Gatomon',
+  },
+
+  // Veemon (Adventure 02)
   {
     id: 'vee-headbutt',
     name: 'Vee Headbutt',
     range: 'melee',
     type: 'damage',
     tags: ['Charge Attack'],
-    description: 'Charges head-first into the target.',
+    description: 'A powerful headbutt attack.',
     stage: 'rookie',
+    digimon: 'Veemon',
+  },
+
+  // Wormmon
+  {
+    id: 'sticky-net',
+    name: 'Sticky Net',
+    range: 'ranged',
+    type: 'damage',
+    tags: [],
+    effect: 'Immobilize',
+    description: 'Shoots a net of sticky threads.',
+    stage: 'rookie',
+    digimon: 'Wormmon',
+  },
+
+  // Guilmon (Tamers)
+  {
+    id: 'pyro-sphere',
+    name: 'Pyro Sphere',
+    range: 'ranged',
+    type: 'damage',
+    tags: [],
+    description: 'Spits a concentrated ball of fire.',
+    stage: 'rookie',
+    digimon: 'Guilmon',
   },
   {
-    id: 'super-shocker',
-    name: 'Super Shocker',
+    id: 'rock-breaker',
+    name: 'Rock Breaker',
+    range: 'melee',
+    type: 'damage',
+    tags: ['Armor Piercing I'],
+    description: 'A powerful claw strike that can break rocks.',
+    stage: 'rookie',
+    digimon: 'Guilmon',
+  },
+
+  // Terriermon
+  {
+    id: 'bunny-blast',
+    name: 'Bunny Blast',
+    range: 'ranged',
+    type: 'damage',
+    tags: [],
+    description: 'Fires a ball of green energy.',
+    stage: 'rookie',
+    digimon: 'Terriermon',
+  },
+  {
+    id: 'terrier-tornado',
+    name: 'Terrier Tornado',
+    range: 'melee',
+    type: 'damage',
+    tags: ['Area Attack: Burst'],
+    description: 'Spins like a tornado, striking all nearby.',
+    stage: 'rookie',
+    digimon: 'Terriermon',
+  },
+
+  // Renamon
+  {
+    id: 'diamond-storm',
+    name: 'Diamond Storm',
     range: 'ranged',
     type: 'damage',
     tags: ['Area Attack: Cone'],
-    effect: 'Paralysis',
-    description: 'Discharges electricity in a cone.',
+    description: 'Summons a storm of razor-sharp shards.',
     stage: 'rookie',
-  },
-  {
-    id: 'diamond-shell',
-    name: 'Diamond Shell',
-    range: 'melee',
-    type: 'support',
-    tags: ['Defend'],
-    description: 'Curls into a protective shell, increasing armor.',
-    stage: 'rookie',
+    digimon: 'Renamon',
   },
 
-  // === CHAMPION STAGE ===
+  // ==========================================
+  // CHAMPION STAGE - Digimon Adventure
+  // ==========================================
+  // Greymon
   {
     id: 'nova-blast',
     name: 'Nova Blast',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon III', 'Signature Move'],
-    description: 'Fires a massive fireball.',
+    tags: ['Weapon II'],
+    description: 'Fires a massive ball of fire from its mouth.',
     stage: 'champion',
+    digimon: 'Greymon',
   },
+  {
+    id: 'great-horns-attack',
+    name: 'Great Horns Attack',
+    range: 'melee',
+    type: 'damage',
+    tags: ['Charge Attack'],
+    description: 'Charges and rams with its horns.',
+    stage: 'champion',
+    digimon: 'Greymon',
+  },
+
+  // Garurumon
   {
     id: 'howling-blaster',
     name: 'Howling Blaster',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon III', 'Signature Move'],
-    description: 'Unleashes a powerful ice beam.',
+    tags: ['Weapon II'],
+    description: 'Fires a powerful stream of blue flames.',
     stage: 'champion',
+    digimon: 'Garurumon',
   },
-  {
-    id: 'electro-shocker',
-    name: 'Electro Shocker',
-    range: 'ranged',
-    type: 'damage',
-    tags: ['Weapon III'],
-    effect: 'Paralysis',
-    description: 'Fires a ball of electricity.',
-    stage: 'champion',
-  },
-  {
-    id: 'hand-of-fate',
-    name: 'Hand of Fate',
-    range: 'ranged',
-    type: 'damage',
-    tags: ['Weapon IV', 'Armor Piercing I'],
-    description: 'Fires a beam of holy energy.',
-    stage: 'champion',
-  },
+
+  // Birdramon
   {
     id: 'meteor-wing',
     name: 'Meteor Wing',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon II', 'Area Attack: Blast'],
-    description: 'Rains down fireballs from above.',
+    tags: ['Area Attack: Blast'],
+    description: 'Rains down fireballs from its wings.',
     stage: 'champion',
+    digimon: 'Birdramon',
   },
+
+  // Kabuterimon
   {
-    id: 'great-horn-attack',
-    name: 'Great Horn Attack',
-    range: 'melee',
-    type: 'damage',
-    tags: ['Weapon IV', 'Charge Attack'],
-    description: 'A powerful charging horn attack.',
-    stage: 'champion',
-  },
-  {
-    id: 'harpoon-torpedo',
-    name: 'Harpoon Torpedo',
+    id: 'electro-shocker',
+    name: 'Electro Shocker',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon II', 'Certain Strike'],
-    description: 'Fires torpedo-like projectiles.',
+    tags: ['Weapon II'],
+    effect: 'Stun',
+    description: 'Fires a ball of electrical energy.',
     stage: 'champion',
+    digimon: 'Kabuterimon',
   },
-  {
-    id: 'lightning-claw',
-    name: 'Lightning Claw',
-    range: 'melee',
-    type: 'damage',
-    tags: ['Weapon II', 'Certain Strike'],
-    description: 'Rapid claw strikes.',
-    stage: 'champion',
-  },
+
+  // Togemon
   {
     id: 'needle-spray',
     name: 'Needle Spray',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon II', 'Area Attack: Cone'],
-    description: 'Fires a barrage of needles.',
+    tags: ['Area Attack: Cone'],
+    description: 'Shoots countless needles from its body.',
     stage: 'champion',
+    digimon: 'Togemon',
   },
+  {
+    id: 'lightspeed-jabbing',
+    name: 'Lightspeed Jabbing',
+    range: 'melee',
+    type: 'damage',
+    tags: ['Weapon II', 'Certain Strike I'],
+    description: 'Rapid-fire punches.',
+    stage: 'champion',
+    digimon: 'Togemon',
+  },
+
+  // Ikkakumon
+  {
+    id: 'harpoon-torpedo',
+    name: 'Harpoon Torpedo',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon II'],
+    description: 'Fires its horn like a torpedo.',
+    stage: 'champion',
+    digimon: 'Ikkakumon',
+  },
+
+  // Angemon
+  {
+    id: 'hand-of-fate',
+    name: 'Hand of Fate',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon III', 'Armor Piercing I'],
+    description: 'Fires a beam of holy energy from its fist.',
+    stage: 'champion',
+    digimon: 'Angemon',
+  },
+  {
+    id: 'angel-rod',
+    name: 'Angel Rod',
+    range: 'melee',
+    type: 'damage',
+    tags: ['Weapon II'],
+    description: 'Strikes with its holy staff.',
+    stage: 'champion',
+    digimon: 'Angemon',
+  },
+
+  // ExVeemon (Adventure 02)
+  {
+    id: 'vee-laser',
+    name: 'Vee Laser',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon II'],
+    description: 'Fires an X-shaped laser from its chest.',
+    stage: 'champion',
+    digimon: 'ExVeemon',
+  },
+
+  // Stingmon
   {
     id: 'spiking-strike',
     name: 'Spiking Strike',
     range: 'melee',
     type: 'damage',
-    tags: ['Weapon III', 'Armor Piercing I'],
-    description: 'A spike-enhanced strike.',
+    tags: ['Weapon II', 'Armor Piercing I'],
+    description: 'Stabs with its spikes.',
     stage: 'champion',
-  },
-  {
-    id: 'heaven-knuckle',
-    name: "Heaven's Knuckle",
-    range: 'ranged',
-    type: 'damage',
-    tags: ['Weapon III', 'Armor Piercing I'],
-    description: 'Fires a holy beam from its fist.',
-    stage: 'champion',
-  },
-  {
-    id: 'heal',
-    name: 'Heal',
-    range: 'ranged',
-    type: 'support',
-    tags: ['Healing'],
-    description: 'Heals an ally by a small amount.',
-    stage: 'champion',
+    digimon: 'Stingmon',
   },
 
-  // === ULTIMATE STAGE ===
+  // Growlmon (Tamers)
+  {
+    id: 'pyro-blaster',
+    name: 'Pyro Blaster',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon III'],
+    description: 'Fires a powerful stream of flames.',
+    stage: 'champion',
+    digimon: 'Growlmon',
+  },
+  {
+    id: 'dragon-slash',
+    name: 'Dragon Slash',
+    range: 'melee',
+    type: 'damage',
+    tags: ['Weapon II', 'Armor Piercing I'],
+    description: 'Slashes with its arm blades.',
+    stage: 'champion',
+    digimon: 'Growlmon',
+  },
+
+  // Gargomon
+  {
+    id: 'gargo-laser',
+    name: 'Gargo Laser',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon II', 'Ammo'],
+    description: 'Fires a barrage of bullets from its gatling arms.',
+    stage: 'champion',
+    digimon: 'Gargomon',
+  },
+
+  // Kyubimon
+  {
+    id: 'fox-tail-inferno',
+    name: 'Fox Tail Inferno',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon II', 'Area Attack: Cone'],
+    description: 'Launches fireballs from its tails.',
+    stage: 'champion',
+    digimon: 'Kyubimon',
+  },
+  {
+    id: 'dragon-wheel',
+    name: 'Dragon Wheel',
+    range: 'melee',
+    type: 'damage',
+    tags: ['Weapon III', 'Charge Attack'],
+    description: 'Engulfs itself in blue flames and charges.',
+    stage: 'champion',
+    digimon: 'Kyubimon',
+  },
+
+  // ==========================================
+  // ULTIMATE STAGE - Digimon Adventure
+  // ==========================================
+  // MetalGreymon
   {
     id: 'giga-blaster',
     name: 'Giga Blaster',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon V', 'Area Attack: Blast', 'Signature Move'],
-    description: 'Fires missiles from its chest.',
+    tags: ['Weapon IV', 'Area Attack: Blast'],
+    description: 'Fires organic missiles from its chest.',
     stage: 'ultimate',
+    digimon: 'MetalGreymon',
   },
   {
-    id: 'metal-wolf-claw',
-    name: 'Metal Wolf Claw',
+    id: 'mega-claw',
+    name: 'Mega Claw',
     range: 'melee',
     type: 'damage',
-    tags: ['Weapon V', 'Certain Strike', 'Armor Piercing II'],
-    description: 'Freezing claw attack.',
+    tags: ['Weapon III', 'Armor Piercing II'],
+    description: 'Extends its metal claw to slash.',
     stage: 'ultimate',
+    digimon: 'MetalGreymon',
+  },
+
+  // WereGarurumon
+  {
+    id: 'wolf-claw',
+    name: 'Wolf Claw',
+    range: 'melee',
+    type: 'damage',
+    tags: ['Weapon IV', 'Certain Strike II'],
+    description: 'Slashes with razor-sharp claws.',
+    stage: 'ultimate',
+    digimon: 'WereGarurumon',
   },
   {
-    id: 'gate-of-destiny',
-    name: 'Gate of Destiny',
-    range: 'ranged',
+    id: 'garuru-kick',
+    name: 'Garuru Kick',
+    range: 'melee',
     type: 'damage',
-    tags: ['Weapon VI', 'Signature Move', 'Armor Piercing II'],
-    description: 'Opens a portal that banishes enemies.',
+    tags: ['Weapon III', 'Charge Attack'],
+    description: 'A powerful flying kick.',
     stage: 'ultimate',
+    digimon: 'WereGarurumon',
   },
+
+  // Garudamon
   {
     id: 'wing-blade',
     name: 'Wing Blade',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon IV', 'Certain Strike', 'Area Attack: Line'],
-    description: 'Fires flaming feathers like missiles.',
+    tags: ['Weapon IV', 'Area Attack: Line'],
+    description: 'Fires a blade of flame from its wings.',
     stage: 'ultimate',
+    digimon: 'Garudamon',
   },
+
+  // MegaKabuterimon
+  {
+    id: 'horn-buster',
+    name: 'Horn Buster',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon IV'],
+    effect: 'Stun',
+    description: 'Fires electrical energy from its horn.',
+    stage: 'ultimate',
+    digimon: 'MegaKabuterimon',
+  },
+
+  // Lillymon
+  {
+    id: 'flower-cannon',
+    name: 'Flower Cannon',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon IV', 'Armor Piercing I'],
+    description: 'Fires energy from its flower hands.',
+    stage: 'ultimate',
+    digimon: 'Lillymon',
+  },
+
+  // Zudomon
   {
     id: 'vulcans-hammer',
     name: "Vulcan's Hammer",
     range: 'melee',
     type: 'damage',
-    tags: ['Weapon VI', 'Armor Piercing II'],
-    description: 'A devastating hammer strike.',
+    tags: ['Weapon V', 'Armor Piercing II'],
+    description: 'Strikes with its powerful hammer.',
     stage: 'ultimate',
+    digimon: 'Zudomon',
+  },
+
+  // MagnaAngemon
+  {
+    id: 'gate-of-destiny',
+    name: 'Gate of Destiny',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon V', 'Signature Move'],
+    description: 'Opens a portal that sucks in and destroys enemies.',
+    stage: 'ultimate',
+    digimon: 'MagnaAngemon',
   },
   {
-    id: 'horn-buster',
-    name: 'Horn Buster',
+    id: 'excalibur',
+    name: 'Excalibur',
     range: 'melee',
     type: 'damage',
-    tags: ['Weapon V', 'Charge Attack'],
-    effect: 'Paralysis',
-    description: 'Charges with electrified horn.',
+    tags: ['Weapon IV', 'Armor Piercing II'],
+    description: 'Extends a blade of holy energy from its arm.',
     stage: 'ultimate',
+    digimon: 'MagnaAngemon',
   },
+
+  // Angewomon
   {
     id: 'celestial-arrow',
     name: 'Celestial Arrow',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon V', 'Certain Strike', 'Armor Piercing II'],
-    description: 'Fires an arrow of pure light.',
+    tags: ['Weapon IV', 'Certain Strike II'],
+    description: 'Fires an arrow of holy light.',
     stage: 'ultimate',
+    digimon: 'Angewomon',
   },
   {
-    id: 'river-of-power',
-    name: 'River of Power',
+    id: 'heavens-charm',
+    name: "Heaven's Charm",
+    range: 'ranged',
+    type: 'support',
+    tags: [],
+    effect: 'Cleanse',
+    description: 'Creates a cross of holy energy that purifies.',
+    stage: 'ultimate',
+    digimon: 'Angewomon',
+  },
+
+  // Paildramon (Adventure 02)
+  {
+    id: 'desperado-blaster',
+    name: 'Desperado Blaster',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon IV', 'Ammo'],
+    description: 'Rapid-fires energy bullets from hip guns.',
+    stage: 'ultimate',
+    digimon: 'Paildramon',
+  },
+
+  // WarGrowlmon (Tamers)
+  {
+    id: 'atomic-blaster',
+    name: 'Atomic Blaster',
     range: 'ranged',
     type: 'damage',
     tags: ['Weapon V', 'Area Attack: Line'],
-    description: 'Fires a powerful energy beam.',
+    description: 'Fires beams from the cannons on its chest.',
     stage: 'ultimate',
+    digimon: 'WarGrowlmon',
   },
   {
-    id: 'ultimate-heal',
-    name: 'Ultimate Heal',
-    range: 'ranged',
-    type: 'support',
-    tags: ['Healing', 'Area Attack: Burst'],
-    description: 'Heals all nearby allies.',
+    id: 'radiation-blade',
+    name: 'Radiation Blade',
+    range: 'melee',
+    type: 'damage',
+    tags: ['Weapon IV', 'Armor Piercing II'],
+    description: 'Extends energy blades from its arms.',
     stage: 'ultimate',
+    digimon: 'WarGrowlmon',
   },
 
-  // === MEGA STAGE ===
+  // Rapidmon
+  {
+    id: 'rapid-fire',
+    name: 'Rapid Fire',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon IV', 'Ammo'],
+    description: 'Fires homing missiles from its arms.',
+    stage: 'ultimate',
+    digimon: 'Rapidmon',
+  },
+  {
+    id: 'tri-beam',
+    name: 'Tri-Beam',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon V', 'Area Attack: Cone'],
+    description: 'Fires a triangular beam of energy.',
+    stage: 'ultimate',
+    digimon: 'Rapidmon',
+  },
+
+  // Taomon
+  {
+    id: 'talisman-of-light',
+    name: 'Talisman of Light',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon IV', 'Armor Piercing II'],
+    description: 'Throws a massive calligraphy brush.',
+    stage: 'ultimate',
+    digimon: 'Taomon',
+  },
+
+  // ==========================================
+  // MEGA STAGE - Digimon Adventure
+  // ==========================================
+  // WarGreymon
   {
     id: 'terra-force',
     name: 'Terra Force',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon VIII', 'Signature Move', 'Area Attack: Blast'],
-    description: 'Gathers energy from the planet to create a massive fireball.',
+    tags: ['Weapon VII', 'Signature Move', 'Area Attack: Blast'],
+    description: 'Gathers energy to form a massive sphere and hurls it.',
     stage: 'mega',
+    digimon: 'WarGreymon',
   },
   {
-    id: 'metal-wolf-sniper',
-    name: 'Metal Wolf Sniper',
-    range: 'ranged',
+    id: 'great-tornado',
+    name: 'Great Tornado',
+    range: 'melee',
     type: 'damage',
-    tags: ['Weapon VII', 'Certain Strike', 'Armor Piercing III'],
-    description: 'Fires a precision ice beam from chest.',
+    tags: ['Weapon VI', 'Charge Attack', 'Area Attack: Pass'],
+    description: 'Spins rapidly and charges through enemies.',
     stage: 'mega',
+    digimon: 'WarGreymon',
   },
   {
-    id: 'strike-of-the-seven-stars',
-    name: 'Strike of the Seven Stars',
+    id: 'dramon-killer',
+    name: 'Dramon Killer',
+    range: 'melee',
+    type: 'damage',
+    tags: ['Weapon VI', 'Armor Piercing III'],
+    description: 'Slashes with its Dramon Destroyer gauntlets.',
+    stage: 'mega',
+    digimon: 'WarGreymon',
+  },
+
+  // MetalGarurumon
+  {
+    id: 'metal-wolf-claw',
+    name: 'Metal Wolf Claw',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon IX', 'Signature Move', 'Armor Piercing III'],
-    description: 'Creates seven orbs of holy energy that strike the enemy.',
+    tags: ['Weapon VII', 'Area Attack: Cone'],
+    description: 'Fires a freezing blast from its mouth.',
     stage: 'mega',
+    digimon: 'MetalGarurumon',
   },
+  {
+    id: 'ice-wolf-bite',
+    name: 'Ice Wolf Bite',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon VI', 'Ammo'],
+    description: 'Fires missiles from all over its body.',
+    stage: 'mega',
+    digimon: 'MetalGarurumon',
+  },
+  {
+    id: 'garuru-tomahawk',
+    name: 'Garuru Tomahawk',
+    range: 'melee',
+    type: 'damage',
+    tags: ['Weapon VI', 'Certain Strike II'],
+    description: 'Slashes with its claws.',
+    stage: 'mega',
+    digimon: 'MetalGarurumon',
+  },
+
+  // Phoenixmon
   {
     id: 'crimson-flame',
     name: 'Crimson Flame',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon VII', 'Area Attack: Cone'],
-    description: 'Releases a wave of crimson flames.',
+    tags: ['Weapon VI', 'Area Attack: Cone'],
+    description: 'Breathes holy flames.',
     stage: 'mega',
+    digimon: 'Phoenixmon',
   },
   {
-    id: 'giga-scissor-claw',
-    name: 'Giga Scissor Claw',
-    range: 'melee',
+    id: 'starlight-explosion',
+    name: 'Starlight Explosion',
+    range: 'ranged',
     type: 'damage',
-    tags: ['Weapon VIII', 'Armor Piercing III'],
-    description: 'Crushes the enemy with massive claws.',
+    tags: ['Weapon VII', 'Signature Move', 'Area Attack: Burst'],
+    description: 'Releases golden light that purifies all evil.',
     stage: 'mega',
+    digimon: 'Phoenixmon',
   },
+
+  // HerculesKabuterimon
+  {
+    id: 'giga-blaster-hk',
+    name: 'Giga Blaster',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon VI', 'Area Attack: Blast'],
+    effect: 'Stun',
+    description: 'Fires a massive ball of electricity.',
+    stage: 'mega',
+    digimon: 'HerculesKabuterimon',
+  },
+
+  // Seraphimon
+  {
+    id: 'strike-of-the-seven-stars',
+    name: 'Strike of the Seven Stars',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon VIII', 'Signature Move', 'Armor Piercing III'],
+    description: 'Creates seven orbs of holy energy that strike.',
+    stage: 'mega',
+    digimon: 'Seraphimon',
+  },
+  {
+    id: 'seven-heavens',
+    name: 'Seven Heavens',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon VII', 'Area Attack: Blast'],
+    description: 'Fires seven balls of holy light.',
+    stage: 'mega',
+    digimon: 'Seraphimon',
+  },
+
+  // Imperialdramon (Adventure 02)
   {
     id: 'positron-laser',
     name: 'Positron Laser',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon VII', 'Certain Strike', 'Armor Piercing II'],
-    description: 'Fires a beam of positron energy.',
+    tags: ['Weapon VIII', 'Area Attack: Line'],
+    description: 'Fires a devastating beam from its cannon.',
     stage: 'mega',
+    digimon: 'Imperialdramon',
   },
   {
-    id: 'omni-sword',
-    name: 'Omni Sword',
+    id: 'mega-crusher',
+    name: 'Mega Crusher',
     range: 'melee',
     type: 'damage',
-    tags: ['Weapon X', 'Armor Piercing III', 'Signature Move'],
-    description: 'A divine sword strike that can cut through anything.',
+    tags: ['Weapon VII', 'Armor Piercing III'],
+    description: 'Crushes enemies with its massive claws.',
     stage: 'mega',
+    digimon: 'Imperialdramon',
   },
-  {
-    id: 'grey-sword',
-    name: 'Grey Sword',
-    range: 'melee',
-    type: 'damage',
-    tags: ['Weapon IX', 'Armor Piercing III'],
-    description: 'Slashes with its massive sword.',
-    stage: 'mega',
-  },
-  {
-    id: 'giga-death',
-    name: 'Giga Death',
-    range: 'ranged',
-    type: 'damage',
-    tags: ['Weapon VIII', 'Area Attack: Blast', 'Armor Piercing II'],
-    description: 'Fires destructive energy from all weapons.',
-    stage: 'mega',
-  },
-  {
-    id: 'eden-javelin',
-    name: "Eden's Javelin",
-    range: 'ranged',
-    type: 'damage',
-    tags: ['Weapon IX', 'Certain Strike', 'Armor Piercing III'],
-    description: 'Throws a javelin of pure light.',
-    stage: 'mega',
-  },
+
+  // Omnimon/Omegamon
   {
     id: 'supreme-cannon',
     name: 'Supreme Cannon',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon X', 'Area Attack: Line', 'Armor Piercing III'],
-    description: 'Fires a devastating energy beam.',
+    tags: ['Weapon IX', 'Signature Move', 'Area Attack: Line'],
+    description: 'Fires a freezing blast from the MetalGarurumon head.',
     stage: 'mega',
+    digimon: 'Omnimon',
+  },
+  {
+    id: 'transcendent-sword',
+    name: 'Transcendent Sword',
+    range: 'melee',
+    type: 'damage',
+    tags: ['Weapon IX', 'Armor Piercing IV'],
+    description: 'Slashes with the Grey Sword extending from its arm.',
+    stage: 'mega',
+    digimon: 'Omnimon',
   },
 
-  // === ULTRA STAGE ===
+  // Gallantmon (Tamers)
   {
-    id: 'alpha-inforce',
-    name: 'Alpha inForce',
+    id: 'lightning-joust',
+    name: 'Lightning Joust',
     range: 'melee',
     type: 'damage',
-    tags: ['Weapon XII', 'Signature Move', 'Armor Piercing IV'],
-    description: 'A legendary sword technique that transcends time.',
-    stage: 'ultra',
+    tags: ['Weapon VII', 'Charge Attack', 'Armor Piercing III'],
+    description: 'Thrusts with its Gram lance at high speed.',
+    stage: 'mega',
+    digimon: 'Gallantmon',
   },
   {
-    id: 'omega-inforce',
-    name: 'Omega inForce',
-    range: 'melee',
-    type: 'damage',
-    tags: ['Weapon XII', 'Signature Move', 'Armor Piercing IV'],
-    description: 'A forbidden technique that rewinds time.',
-    stage: 'ultra',
-  },
-  {
-    id: 'grace-cross-freezer',
-    name: 'Grace Cross Freezer',
+    id: 'shield-of-the-just',
+    name: 'Shield of the Just',
     range: 'ranged',
     type: 'damage',
-    tags: ['Weapon XI', 'Area Attack: Blast', 'Armor Piercing IV'],
-    effect: 'Slow',
-    description: 'Freezes the surrounding area with absolute zero ice.',
-    stage: 'ultra',
+    tags: ['Weapon VIII', 'Signature Move', 'Area Attack: Cone'],
+    description: 'Fires a beam from its Aegis shield.',
+    stage: 'mega',
+    digimon: 'Gallantmon',
   },
 
-  // === ANY STAGE (Universal attacks) ===
+  // MegaGargomon
+  {
+    id: 'mega-barrage',
+    name: 'Mega Barrage',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon VII', 'Ammo', 'Area Attack: Blast'],
+    description: 'Fires all weapons simultaneously.',
+    stage: 'mega',
+    digimon: 'MegaGargomon',
+  },
+  {
+    id: 'gargo-missiles',
+    name: 'Gargo Missiles',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon VI', 'Area Attack: Blast'],
+    description: 'Launches missiles from its shoulders.',
+    stage: 'mega',
+    digimon: 'MegaGargomon',
+  },
+
+  // Sakuyamon
+  {
+    id: 'spirit-strike',
+    name: 'Spirit Strike',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon VI', 'Certain Strike II'],
+    description: 'Attacks with four fox spirits.',
+    stage: 'mega',
+    digimon: 'Sakuyamon',
+  },
+  {
+    id: 'amethyst-mandala',
+    name: 'Amethyst Mandala',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon VII', 'Area Attack: Burst'],
+    description: 'Creates a barrier of golden rings that explode outward.',
+    stage: 'mega',
+    digimon: 'Sakuyamon',
+  },
+
+  // Beelzemon
+  {
+    id: 'double-impact',
+    name: 'Double Impact',
+    range: 'ranged',
+    type: 'damage',
+    tags: ['Weapon VI', 'Ammo', 'Certain Strike II'],
+    description: 'Rapid-fires with its shotguns.',
+    stage: 'mega',
+    digimon: 'Beelzemon',
+  },
+  {
+    id: 'darkness-claw',
+    name: 'Darkness Claw',
+    range: 'melee',
+    type: 'damage',
+    tags: ['Weapon VI', 'Armor Piercing II'],
+    description: 'Slashes with claws infused with dark power.',
+    stage: 'mega',
+    digimon: 'Beelzemon',
+  },
+
+  // ==========================================
+  // UNIVERSAL ATTACKS (any stage)
+  // ==========================================
   {
     id: 'basic-attack',
     name: 'Basic Attack',
@@ -515,27 +931,8 @@ export const ATTACK_DATABASE: AttackTemplate[] = [
     stage: 'any',
   },
   {
-    id: 'guard',
-    name: 'Guard',
-    range: 'melee',
-    type: 'support',
-    tags: ['Defend'],
-    description: 'Take a defensive stance, increasing armor temporarily.',
-    stage: 'any',
-  },
-  {
-    id: 'distracting-strike',
-    name: 'Distracting Strike',
-    range: 'melee',
-    type: 'damage',
-    tags: [],
-    effect: 'Distracted',
-    description: 'A quick strike that distracts the enemy.',
-    stage: 'any',
-  },
-  {
-    id: 'ranged-strike',
-    name: 'Ranged Strike',
+    id: 'basic-ranged',
+    name: 'Basic Ranged Attack',
     range: 'ranged',
     type: 'damage',
     tags: [],
@@ -563,6 +960,7 @@ export function searchAttacks(query: string): AttackTemplate[] {
     (a) =>
       a.name.toLowerCase().includes(lower) ||
       a.description.toLowerCase().includes(lower) ||
-      a.tags.some((t) => t.toLowerCase().includes(lower))
+      a.tags.some((t) => t.toLowerCase().includes(lower)) ||
+      (a.digimon && a.digimon.toLowerCase().includes(lower))
   )
 }
