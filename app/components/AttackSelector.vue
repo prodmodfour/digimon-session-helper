@@ -131,12 +131,10 @@ function getTypeColor(type: 'damage' | 'support') {
       <button
         v-if="!showSelector"
         type="button"
-        class="w-full border-2 border-dashed border-digimon-dark-600 rounded-lg p-4
-               text-digimon-dark-400 hover:border-digimon-dark-500 hover:text-digimon-dark-300
-               transition-colors"
+        class="text-sm text-digimon-orange-400 hover:text-digimon-orange-300 transition-colors"
         @click="showSelector = true"
       >
-        + Add Attack from Database ({{ currentAttacks.length }}/{{ maxAttacks }})
+        + Add Attack from Database
       </button>
 
       <!-- Attack selector -->
