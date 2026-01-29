@@ -1,0 +1,38 @@
+import { eq } from 'drizzle-orm'
+import { db, tamers, type Tamer } from '../../db'
+
+type UpdateTamerBody = Partial<Omit<Tamer, 'id' | 'createdAt' | 'updatedAt'>>
+
+export default defineEventHandler(async (event) => {
+  const id = getRouterParam(event, 'id')
+  const body = await readBody<UpdateTamerBody>(event)
+
+  if (!id) {
+    throw createError({
+      statusCode: 400,
+      message: 'Tamer ID is required',
+    })
+  }
+
+  // Check if tamer exists
+  const [existing] = await db.select().from(tamers).where(eq(tamers.id, id))
+
+  if (!existing) {
+    throw createError({
+      statusCode: 404,
+      message: `Tamer with ID ${id} not found`,
+    })
+  }
+
+  // Update tamer
+  const updateData = {
+    ...body,
+    updatedAt: new Date(),
+  }
+
+  await db.update(tamers).set(updateData).where(eq(tamers.id, id))
+
+  // Return updated tamer
+  const [updated] = await db.select().from(tamers).where(eq(tamers.id, id))
+  return updated
+})
