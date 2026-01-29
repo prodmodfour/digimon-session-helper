@@ -117,6 +117,7 @@ function getStageColor(stage: DigimonStage): string {
     champion: 'text-digimon-stage-champion',
     ultimate: 'text-digimon-stage-ultimate',
     mega: 'text-digimon-stage-mega',
+    ultra: 'text-digimon-stage-ultra',
   }
   return colors[stage] || 'text-gray-400'
 }
@@ -402,18 +403,37 @@ function switchCharacter() {
                     :key="attack.id"
                     class="bg-digimon-dark-700 rounded-lg p-3"
                   >
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
                       <span class="font-semibold text-white">{{ attack.name }}</span>
                       <span :class="[
                         'text-xs px-1.5 py-0.5 rounded',
-                        attack.type === 'simple' ? 'bg-blue-900/50 text-blue-400' : 'bg-purple-900/50 text-purple-400'
+                        attack.range === 'melee' ? 'bg-red-900/50 text-red-400' : 'bg-blue-900/50 text-blue-400'
                       ]">
-                        {{ attack.type }}
+                        [{{ attack.range === 'melee' ? 'Melee' : 'Ranged' }}]
                       </span>
-                      <span class="text-xs text-digimon-dark-400 capitalize">{{ attack.range }}</span>
+                      <span :class="[
+                        'text-xs px-1.5 py-0.5 rounded',
+                        attack.type === 'damage' ? 'bg-orange-900/50 text-orange-400' : 'bg-green-900/50 text-green-400'
+                      ]">
+                        [{{ attack.type === 'damage' ? 'Damage' : 'Support' }}]
+                      </span>
                     </div>
-                    <div v-if="attack.effect" class="text-sm text-digimon-dark-300 mt-1">
-                      {{ attack.effect }}
+                    <div v-if="attack.tags && attack.tags.length > 0" class="flex gap-1 mt-2 flex-wrap">
+                      <span
+                        v-for="tag in attack.tags"
+                        :key="tag"
+                        class="text-xs bg-digimon-dark-600 text-digimon-dark-300 px-2 py-0.5 rounded"
+                      >
+                        {{ tag }}
+                      </span>
+                    </div>
+                    <div v-if="attack.effect" class="mt-1">
+                      <span class="text-xs bg-purple-900/30 text-purple-400 px-2 py-0.5 rounded">
+                        Effect: {{ attack.effect }}
+                      </span>
+                    </div>
+                    <div v-if="attack.description" class="text-sm text-digimon-dark-400 mt-1 italic">
+                      {{ attack.description }}
                     </div>
                   </div>
                 </div>

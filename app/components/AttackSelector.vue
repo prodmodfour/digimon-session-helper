@@ -2,24 +2,26 @@
 import { ATTACK_DATABASE, getAttacksForStage, type AttackTemplate } from '../data/attacks'
 import type { DigimonStage } from '../types'
 
+// DDA 1.4 Attack structure
+interface Attack {
+  id: string
+  name: string
+  range: 'melee' | 'ranged'
+  type: 'damage' | 'support'
+  tags: string[]
+  effect?: string
+  description: string
+}
+
 interface Props {
   stage: DigimonStage
   maxAttacks: number
-  currentAttacks: Array<{
-    id: string
-    name: string
-    type: 'simple' | 'complex'
-    range: 'melee' | 'short' | 'medium' | 'long'
-    damageModifier: number
-    accuracyModifier: number
-    tags: string[]
-    effect: string
-  }>
+  currentAttacks: Attack[]
 }
 
 const props = defineProps<Props>()
 const emit = defineEmits<{
-  (e: 'add', attack: Props['currentAttacks'][0]): void
+  (e: 'add', attack: Attack): void
   (e: 'remove', index: number): void
 }>()
 
@@ -41,7 +43,7 @@ const availableAttacks = computed(() => {
     attacks = attacks.filter(
       (a) =>
         a.name.toLowerCase().includes(query) ||
-        a.effect.toLowerCase().includes(query) ||
+        a.description.toLowerCase().includes(query) ||
         a.tags.some((t) => t.toLowerCase().includes(query))
     )
   }
@@ -52,15 +54,14 @@ const availableAttacks = computed(() => {
 })
 
 function selectAttack(template: AttackTemplate) {
-  const attack = {
+  const attack: Attack = {
     id: template.id,
     name: template.name,
-    type: template.type,
     range: template.range,
-    damageModifier: template.damageModifier,
-    accuracyModifier: template.accuracyModifier,
+    type: template.type,
     tags: [...template.tags],
     effect: template.effect,
+    description: template.description,
   }
   emit('add', attack)
 
@@ -69,8 +70,12 @@ function selectAttack(template: AttackTemplate) {
   }
 }
 
-function getTypeColor(type: 'simple' | 'complex') {
-  return type === 'simple' ? 'bg-blue-900/30 text-blue-400' : 'bg-purple-900/30 text-purple-400'
+function getRangeColor(range: 'melee' | 'ranged') {
+  return range === 'melee' ? 'bg-red-900/30 text-red-400' : 'bg-blue-900/30 text-blue-400'
+}
+
+function getTypeColor(type: 'damage' | 'support') {
+  return type === 'damage' ? 'bg-orange-900/30 text-orange-400' : 'bg-green-900/30 text-green-400'
 }
 </script>
 
@@ -86,17 +91,11 @@ function getTypeColor(type: 'simple' | 'complex') {
         <div class="flex-1">
           <div class="flex items-center gap-2 flex-wrap">
             <span class="font-semibold text-white">{{ attack.name }}</span>
+            <span :class="['text-xs px-2 py-0.5 rounded', getRangeColor(attack.range)]">
+              [{{ attack.range === 'melee' ? 'Melee' : 'Ranged' }}]
+            </span>
             <span :class="['text-xs px-2 py-0.5 rounded', getTypeColor(attack.type)]">
-              {{ attack.type }}
-            </span>
-            <span class="text-xs text-digimon-dark-400 capitalize">{{ attack.range }}</span>
-          </div>
-          <div class="text-sm text-digimon-dark-400 mt-1">
-            <span v-if="attack.damageModifier !== 0">
-              DMG {{ attack.damageModifier >= 0 ? '+' : '' }}{{ attack.damageModifier }}
-            </span>
-            <span v-if="attack.accuracyModifier !== 0" class="ml-2">
-              ACC {{ attack.accuracyModifier >= 0 ? '+' : '' }}{{ attack.accuracyModifier }}
+              [{{ attack.type === 'damage' ? 'Damage' : 'Support' }}]
             </span>
           </div>
           <div v-if="attack.tags.length > 0" class="flex gap-1 mt-2 flex-wrap">
@@ -108,7 +107,14 @@ function getTypeColor(type: 'simple' | 'complex') {
               {{ tag }}
             </span>
           </div>
-          <p v-if="attack.effect" class="text-sm text-digimon-dark-300 mt-2">{{ attack.effect }}</p>
+          <div v-if="attack.effect" class="mt-1">
+            <span class="text-xs bg-purple-900/30 text-purple-400 px-2 py-0.5 rounded">
+              Effect: {{ attack.effect }}
+            </span>
+          </div>
+          <p v-if="attack.description" class="text-sm text-digimon-dark-400 mt-2 italic">
+            {{ attack.description }}
+          </p>
         </div>
         <button
           type="button"
@@ -167,6 +173,7 @@ function getTypeColor(type: 'simple' | 'complex') {
             <option value="champion">Champion</option>
             <option value="ultimate">Ultimate</option>
             <option value="mega">Mega</option>
+            <option value="ultra">Ultra</option>
           </select>
         </div>
 
@@ -182,21 +189,29 @@ function getTypeColor(type: 'simple' | 'complex') {
           >
             <div class="flex items-center gap-2 flex-wrap">
               <span class="font-semibold text-white">{{ attack.name }}</span>
-              <span :class="['text-xs px-2 py-0.5 rounded', getTypeColor(attack.type)]">
-                {{ attack.type }}
+              <span :class="['text-xs px-2 py-0.5 rounded', getRangeColor(attack.range)]">
+                [{{ attack.range === 'melee' ? 'Melee' : 'Ranged' }}]
               </span>
-              <span class="text-xs text-digimon-dark-400 capitalize">{{ attack.range }}</span>
+              <span :class="['text-xs px-2 py-0.5 rounded', getTypeColor(attack.type)]">
+                [{{ attack.type === 'damage' ? 'Damage' : 'Support' }}]
+              </span>
               <span class="text-xs text-digimon-dark-500 capitalize">({{ attack.stage }})</span>
             </div>
-            <div class="text-xs text-digimon-dark-400 mt-1">
-              <span v-if="attack.damageModifier !== 0">
-                DMG {{ attack.damageModifier >= 0 ? '+' : '' }}{{ attack.damageModifier }}
-              </span>
-              <span v-if="attack.accuracyModifier !== 0" class="ml-2">
-                ACC {{ attack.accuracyModifier >= 0 ? '+' : '' }}{{ attack.accuracyModifier }}
+            <div v-if="attack.tags.length > 0" class="flex gap-1 mt-1 flex-wrap">
+              <span
+                v-for="tag in attack.tags"
+                :key="tag"
+                class="text-xs bg-digimon-dark-600 text-digimon-dark-300 px-1 py-0.5 rounded"
+              >
+                {{ tag }}
               </span>
             </div>
-            <p class="text-xs text-digimon-dark-300 mt-1 line-clamp-2">{{ attack.effect }}</p>
+            <div v-if="attack.effect" class="mt-1">
+              <span class="text-xs bg-purple-900/30 text-purple-400 px-1 py-0.5 rounded">
+                {{ attack.effect }}
+              </span>
+            </div>
+            <p class="text-xs text-digimon-dark-400 mt-1 line-clamp-2 italic">{{ attack.description }}</p>
           </button>
 
           <div v-if="availableAttacks.length === 0" class="text-center py-4 text-digimon-dark-400">

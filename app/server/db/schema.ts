@@ -84,7 +84,7 @@ export const digimon = sqliteTable('digimon', {
   species: text('species').notNull(),
 
   stage: text('stage').notNull().$type<
-    'fresh' | 'in-training' | 'rookie' | 'champion' | 'ultimate' | 'mega'
+    'fresh' | 'in-training' | 'rookie' | 'champion' | 'ultimate' | 'mega' | 'ultra'
   >(),
 
   attribute: text('attribute').notNull().$type<'vaccine' | 'data' | 'virus' | 'free'>(),
@@ -101,25 +101,28 @@ export const digimon = sqliteTable('digimon', {
   }>(),
 
   // Attacks (stored as JSON array) - DDA 1.4 format
+  // Attacks have: range (melee/ranged), type (damage/support), tags from qualities, optional effect
   attacks: text('attacks', { mode: 'json' }).notNull().$type<Array<{
     id: string
     name: string
-    type: 'simple' | 'complex'  // Action type
-    range: 'melee' | 'short' | 'medium' | 'long'
-    damageModifier: number
-    accuracyModifier: number
-    tags: string[]
-    effect: string
+    range: 'melee' | 'ranged'        // [Melee] or [Ranged] - free tag
+    type: 'damage' | 'support'        // [Damage] or [Support] - free tag
+    tags: string[]                    // Quality-based tags (e.g., "Weapon II", "Charge Attack", "Area Attack: Burst 3")
+    effect?: string                   // Optional effect tag (e.g., "Paralysis", "Poison 3")
+    description: string               // Flavor text for the attack
   }>>(),
 
   // Qualities (stored as JSON array)
   qualities: text('qualities', { mode: 'json' }).notNull().$type<Array<{
     id: string
     name: string
-    type: 'static' | 'trigger' | 'attack'
+    type: 'static' | 'trigger' | 'attack' | Array<'static' | 'trigger' | 'attack'>
     dpCost: number
     description: string
     effect: string
+    ranks?: number
+    choiceId?: string
+    choiceName?: string
   }>>(),
 
   dataOptimization: text('data_optimization'),

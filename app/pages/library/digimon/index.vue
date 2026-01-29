@@ -44,6 +44,7 @@ function getStageColor(stage: DigimonStage): string {
     champion: 'bg-digimon-stage-champion/20 text-digimon-stage-champion',
     ultimate: 'bg-digimon-stage-ultimate/20 text-digimon-stage-ultimate',
     mega: 'bg-digimon-stage-mega/20 text-digimon-stage-mega',
+    ultra: 'bg-digimon-stage-ultra/20 text-digimon-stage-ultra',
   }
   return colors[stage] || 'bg-gray-500/20 text-gray-400'
 }

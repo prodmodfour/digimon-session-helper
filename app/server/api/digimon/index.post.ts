@@ -23,20 +23,22 @@ interface CreateDigimonBody {
   attacks?: Array<{
     id: string
     name: string
-    type: 'simple' | 'complex'
-    range: 'melee' | 'short' | 'medium' | 'long'
-    damageModifier: number
-    accuracyModifier: number
+    range: 'melee' | 'ranged'
+    type: 'damage' | 'support'
     tags: string[]
-    effect: string
+    effect?: string
+    description: string
   }>
   qualities?: Array<{
     id: string
     name: string
-    type: 'static' | 'trigger' | 'attack'
+    type: 'static' | 'trigger' | 'attack' | Array<'static' | 'trigger' | 'attack'>
     dpCost: number
     description: string
     effect: string
+    ranks?: number
+    choiceId?: string
+    choiceName?: string
   }>
   dataOptimization?: string
   partnerId?: string

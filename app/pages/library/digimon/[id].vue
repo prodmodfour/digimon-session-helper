@@ -42,8 +42,19 @@ const attributes = ['vaccine', 'data', 'virus', 'free'] as const
 
 const currentStageConfig = computed(() => STAGE_CONFIG[form.stage])
 
-const dpUsed = computed(() => {
+// DP calculation - DDA 1.4 rules:
+// Stats cost 1 DP per point
+// Qualities have variable DP costs (can be positive, negative, or zero)
+const dpUsedOnStats = computed(() => {
   return Object.values(form.baseStats).reduce((a, b) => a + b, 0)
+})
+
+const dpUsedOnQualities = computed(() => {
+  return form.qualities.reduce((total, q) => total + (q.dpCost || 0), 0)
+})
+
+const dpUsed = computed(() => {
+  return dpUsedOnStats.value + dpUsedOnQualities.value
 })
 
 const dpRemaining = computed(() => {
@@ -53,18 +64,15 @@ const dpRemaining = computed(() => {
 // Toggle for custom attack form
 const showCustomAttackForm = ref(false)
 
-// New attack form (for custom attacks)
+// New attack form - DDA 1.4 structure
 const newAttack = reactive({
   name: '',
-  type: 'simple' as 'simple' | 'complex',
+  range: 'melee' as 'melee' | 'ranged',
+  type: 'damage' as 'damage' | 'support',
   tags: [] as string[],
-  damageModifier: 0,
-  accuracyModifier: 0,
-  range: 'melee' as 'melee' | 'short' | 'medium' | 'long',
-  effect: '',
+  effect: '' as string | undefined,
+  description: '',
 })
-
-const newTag = ref('')
 
 type Attack = Digimon['attacks'][0]
 
@@ -72,24 +80,84 @@ function handleAddAttack(attack: Attack) {
   form.attacks = [...form.attacks, attack]
 }
 
+// Get available tags based on owned qualities
+const availableAttackTags = computed(() => {
+  const tags: Array<{ id: string; name: string; description: string }> = []
+
+  for (const quality of form.qualities) {
+    // Qualities that grant attack tags
+    if (quality.id === 'weapon') {
+      tags.push({ id: 'weapon', name: `Weapon ${quality.ranks || 1}`, description: 'Weapon attack' })
+    }
+    if (quality.id === 'armor-piercing') {
+      tags.push({ id: 'armor-piercing', name: `Armor Piercing ${quality.ranks || 1}`, description: 'Ignores armor' })
+    }
+    if (quality.id === 'charge-attack') {
+      tags.push({ id: 'charge-attack', name: 'Charge Attack', description: 'Move and attack' })
+    }
+    if (quality.id === 'signature-move') {
+      tags.push({ id: 'signature-move', name: 'Signature Move', description: 'Powerful attack with cooldown' })
+    }
+    if (quality.id === 'certain-strike') {
+      tags.push({ id: 'certain-strike', name: 'Certain Strike', description: 'Reroll accuracy' })
+    }
+    if (quality.id === 'area-attack') {
+      // Add all area attack types
+      tags.push({ id: 'area-blast', name: 'Area Attack: Blast', description: 'Explosion at target' })
+      tags.push({ id: 'area-burst', name: 'Area Attack: Burst', description: 'Area around self' })
+      tags.push({ id: 'area-cone', name: 'Area Attack: Cone', description: 'Cone shape' })
+      tags.push({ id: 'area-line', name: 'Area Attack: Line', description: 'Line from self' })
+      tags.push({ id: 'area-pass', name: 'Area Attack: Pass', description: 'Line through targets' })
+      tags.push({ id: 'area-close-blast', name: 'Area Attack: Close Blast', description: 'Adjacent explosion' })
+    }
+    // Attack effects
+    if (quality.id.startsWith('effect-')) {
+      const effectName = quality.name
+      tags.push({ id: quality.id, name: effectName, description: quality.description })
+    }
+  }
+
+  return tags
+})
+
+// Get available effect tags based on owned qualities (3.09 Attack Effects)
+const availableEffectTags = computed(() => {
+  return form.qualities
+    .filter((q) => q.id.startsWith('effect-'))
+    .map((q) => ({ id: q.id.replace('effect-', ''), name: q.name }))
+})
+
+function addTagToAttack(tagName: string) {
+  if (!newAttack.tags.includes(tagName)) {
+    newAttack.tags = [...newAttack.tags, tagName]
+  }
+}
+
+function removeTagFromAttack(tagName: string) {
+  newAttack.tags = newAttack.tags.filter((t) => t !== tagName)
+}
+
 function addCustomAttack() {
   if (!newAttack.name) return
   form.attacks = [
     ...form.attacks,
     {
-      id: `custom-${Date.now()}`,
-      ...newAttack,
+      id: `attack-${Date.now()}`,
+      name: newAttack.name,
+      range: newAttack.range,
+      type: newAttack.type,
       tags: [...newAttack.tags],
+      effect: newAttack.effect || undefined,
+      description: newAttack.description,
     },
   ]
   // Reset form
   newAttack.name = ''
-  newAttack.type = 'simple'
-  newAttack.tags = []
-  newAttack.damageModifier = 0
-  newAttack.accuracyModifier = 0
   newAttack.range = 'melee'
+  newAttack.type = 'damage'
+  newAttack.tags = []
   newAttack.effect = ''
+  newAttack.description = ''
   showCustomAttackForm.value = false
 }
 
@@ -107,16 +175,7 @@ function removeQuality(index: number) {
   form.qualities = form.qualities.filter((_, i) => i !== index)
 }
 
-function addTag() {
-  if (newTag.value && !newAttack.tags.includes(newTag.value)) {
-    newAttack.tags.push(newTag.value)
-    newTag.value = ''
-  }
-}
-
-function removeTag(tag: string) {
-  newAttack.tags = newAttack.tags.filter((t) => t !== tag)
-}
+// Old free-form tag functions removed - now using quality-based tags
 
 // Sprite preview
 const spriteError = ref(false)
@@ -327,16 +386,21 @@ async function handleSubmit() {
       <div class="bg-digimon-dark-800 rounded-xl p-6 border border-digimon-dark-700">
         <div class="flex justify-between items-center mb-4">
           <h2 class="font-display text-xl font-semibold text-white">Base Stats</h2>
-          <span
-            :class="[
-              'text-sm px-3 py-1 rounded',
-              dpRemaining === 0 && 'bg-green-900/30 text-green-400',
-              dpRemaining > 0 && 'bg-yellow-900/30 text-yellow-400',
-              dpRemaining < 0 && 'bg-red-900/30 text-red-400',
-            ]"
-          >
-            {{ dpUsed }} / {{ currentStageConfig.dp }} DP used
-          </span>
+          <div class="flex flex-col items-end gap-1">
+            <span
+              :class="[
+                'text-sm px-3 py-1 rounded',
+                dpRemaining === 0 && 'bg-green-900/30 text-green-400',
+                dpRemaining > 0 && 'bg-yellow-900/30 text-yellow-400',
+                dpRemaining < 0 && 'bg-red-900/30 text-red-400',
+              ]"
+            >
+              {{ dpRemaining }} DP remaining
+            </span>
+            <span class="text-xs text-digimon-dark-400">
+              Stats: {{ dpUsedOnStats }} | Qualities: {{ dpUsedOnQualities }} | Total: {{ dpUsed }} / {{ currentStageConfig.dp }}
+            </span>
+          </div>
         </div>
         <div class="grid grid-cols-5 gap-4">
           <div class="text-center">
@@ -430,89 +494,105 @@ async function handleSubmit() {
                 Cancel
               </button>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <!-- Name -->
+            <div>
+              <label class="text-xs text-digimon-dark-400">Attack Name</label>
               <input
                 v-model="newAttack.name"
                 type="text"
                 placeholder="Attack name"
-                class="bg-digimon-dark-700 border border-digimon-dark-600 rounded px-3 py-2
-                       text-white text-sm focus:border-digimon-orange-500 focus:outline-none"
+                class="w-full bg-digimon-dark-700 border border-digimon-dark-600 rounded px-3 py-2
+                       text-white text-sm focus:border-digimon-orange-500 focus:outline-none mt-1"
               />
-              <select
-                v-model="newAttack.type"
-                class="bg-digimon-dark-700 border border-digimon-dark-600 rounded px-3 py-2
-                       text-white text-sm focus:border-digimon-orange-500 focus:outline-none"
-              >
-                <option value="simple">Simple Action</option>
-                <option value="complex">Complex Action</option>
-              </select>
-              <select
-                v-model="newAttack.range"
-                class="bg-digimon-dark-700 border border-digimon-dark-600 rounded px-3 py-2
-                       text-white text-sm focus:border-digimon-orange-500 focus:outline-none"
-              >
-                <option value="melee">Melee</option>
-                <option value="short">Short</option>
-                <option value="medium">Medium</option>
-                <option value="long">Long</option>
-              </select>
             </div>
+
+            <!-- Range and Type (DDA 1.4 core tags) -->
             <div class="grid grid-cols-2 gap-3 mt-3">
               <div>
-                <label class="text-xs text-digimon-dark-400">Damage Modifier</label>
-                <input
-                  v-model.number="newAttack.damageModifier"
-                  type="number"
+                <label class="text-xs text-digimon-dark-400">[Range]</label>
+                <select
+                  v-model="newAttack.range"
                   class="w-full bg-digimon-dark-700 border border-digimon-dark-600 rounded px-3 py-2
-                         text-white text-sm focus:border-digimon-orange-500 focus:outline-none"
-                />
+                         text-white text-sm focus:border-digimon-orange-500 focus:outline-none mt-1"
+                >
+                  <option value="melee">[Melee]</option>
+                  <option value="ranged">[Ranged]</option>
+                </select>
               </div>
               <div>
-                <label class="text-xs text-digimon-dark-400">Accuracy Modifier</label>
-                <input
-                  v-model.number="newAttack.accuracyModifier"
-                  type="number"
+                <label class="text-xs text-digimon-dark-400">[Type]</label>
+                <select
+                  v-model="newAttack.type"
                   class="w-full bg-digimon-dark-700 border border-digimon-dark-600 rounded px-3 py-2
-                         text-white text-sm focus:border-digimon-orange-500 focus:outline-none"
-                />
+                         text-white text-sm focus:border-digimon-orange-500 focus:outline-none mt-1"
+                >
+                  <option value="damage">[Damage]</option>
+                  <option value="support">[Support]</option>
+                </select>
               </div>
             </div>
+
+            <!-- Quality-based Tags -->
             <div class="mt-3">
-              <label class="text-xs text-digimon-dark-400">Tags</label>
-              <div class="flex gap-2 mt-1">
-                <input
-                  v-model="newTag"
-                  type="text"
-                  placeholder="Add tag"
-                  class="flex-1 bg-digimon-dark-700 border border-digimon-dark-600 rounded px-3 py-2
-                         text-white text-sm focus:border-digimon-orange-500 focus:outline-none"
-                  @keyup.enter="addTag"
-                />
+              <label class="text-xs text-digimon-dark-400">Tags (from owned qualities)</label>
+              <div v-if="availableAttackTags.length === 0" class="text-xs text-digimon-dark-500 mt-1">
+                No attack-modifying qualities owned. Add qualities like Weapon, Armor Piercing, Area Attack, etc.
+              </div>
+              <div v-else class="flex flex-wrap gap-2 mt-1">
                 <button
+                  v-for="tag in availableAttackTags"
+                  :key="tag.id"
                   type="button"
-                  class="bg-digimon-dark-600 hover:bg-digimon-dark-500 text-white px-3 py-2 rounded text-sm"
-                  @click="addTag"
+                  :class="[
+                    'text-xs px-2 py-1 rounded transition-colors',
+                    newAttack.tags.includes(tag.name)
+                      ? 'bg-digimon-orange-500 text-white'
+                      : 'bg-digimon-dark-600 text-digimon-dark-300 hover:bg-digimon-dark-500'
+                  ]"
+                  :title="tag.description"
+                  @click="newAttack.tags.includes(tag.name) ? removeTagFromAttack(tag.name) : addTagToAttack(tag.name)"
                 >
-                  Add
+                  {{ tag.name }}
                 </button>
               </div>
               <div v-if="newAttack.tags.length > 0" class="flex flex-wrap gap-1 mt-2">
+                <span class="text-xs text-digimon-dark-400">Selected:</span>
                 <span
                   v-for="tag in newAttack.tags"
                   :key="tag"
-                  class="text-xs bg-digimon-dark-600 text-digimon-dark-300 px-2 py-0.5 rounded flex items-center gap-1"
+                  class="text-xs bg-digimon-orange-500/20 text-digimon-orange-400 px-2 py-0.5 rounded flex items-center gap-1"
                 >
                   {{ tag }}
-                  <button type="button" class="text-red-400 hover:text-red-300" @click="removeTag(tag)">&times;</button>
+                  <button type="button" class="text-red-400 hover:text-red-300" @click="removeTagFromAttack(tag)">&times;</button>
                 </span>
               </div>
             </div>
+
+            <!-- Effect (from effect qualities) -->
             <div class="mt-3">
-              <label class="text-xs text-digimon-dark-400">Effect Description</label>
-              <textarea
+              <label class="text-xs text-digimon-dark-400">Effect (optional)</label>
+              <select
                 v-model="newAttack.effect"
+                class="w-full bg-digimon-dark-700 border border-digimon-dark-600 rounded px-3 py-2
+                       text-white text-sm focus:border-digimon-orange-500 focus:outline-none mt-1"
+              >
+                <option value="">No effect</option>
+                <option v-for="effect in availableEffectTags" :key="effect.id" :value="effect.name">
+                  {{ effect.name }}
+                </option>
+              </select>
+              <p v-if="availableEffectTags.length === 0" class="text-xs text-digimon-dark-500 mt-1">
+                Add effect qualities (Poison, Paralysis, etc.) to enable attack effects.
+              </p>
+            </div>
+
+            <!-- Description -->
+            <div class="mt-3">
+              <label class="text-xs text-digimon-dark-400">Description (flavor text)</label>
+              <textarea
+                v-model="newAttack.description"
                 rows="2"
-                placeholder="What does this attack do?"
+                placeholder="Describe the attack's appearance and style..."
                 class="w-full bg-digimon-dark-700 border border-digimon-dark-600 rounded px-3 py-2
                        text-white text-sm focus:border-digimon-orange-500 focus:outline-none resize-none mt-1"
               />

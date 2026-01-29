@@ -3,10 +3,19 @@ import {
   QUALITY_DATABASE,
   getFreeQualities,
   getNegativeQualities,
+  getPurchasableQualities,
   getMaxNegativeDP,
   getQualityTypeTags,
+  getQualityCategories,
+  isQualityAvailableAtStage,
+  getMaxRanksAtStage,
+  arePrerequisitesMet,
+  hasExclusiveConflict,
+  getQualityById,
   type QualityTemplate,
   type QualityTypeTag,
+  type QualityType,
+  type QualityCategory,
 } from '../data/qualities'
 import type { DigimonStage } from '../types'
 
@@ -18,6 +27,8 @@ interface Quality {
   description: string
   effect: string
   ranks?: number
+  choiceId?: string
+  choiceName?: string
 }
 
 interface Props {
@@ -29,11 +40,20 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'add', quality: Quality): void
   (e: 'remove', index: number): void
+  (e: 'updateRanks', index: number, ranks: number): void
 }>()
 
 const showSelector = ref(false)
 const searchQuery = ref('')
-const filterType = ref<'all' | 'free' | 'negative'>('all')
+const filterType = ref<'all' | 'free' | 'negative' | 'purchasable'>('all')
+const filterCategory = ref<QualityCategory | 'all'>('all')
+
+// Get all purchasable categories for the dropdown
+const purchasableCategories = computed(() => {
+  return getQualityCategories().filter(
+    (cat) => cat.id !== 'free' && cat.id !== 'negative'
+  )
+})
 
 const maxNegativeDP = computed(() => getMaxNegativeDP(props.stage))
 
@@ -43,7 +63,16 @@ const currentNegativeDP = computed(() => {
       const template = QUALITY_DATABASE.find((t) => t.id === q.id)
       return template?.type === 'negative'
     })
-    .reduce((sum, q) => sum + q.dpCost, 0)
+    .reduce((sum, q) => sum + Math.abs(q.dpCost), 0)
+})
+
+const currentPurchasableDP = computed(() => {
+  return props.currentQualities
+    .filter((q) => {
+      const template = QUALITY_DATABASE.find((t) => t.id === q.id)
+      return template?.type === 'purchasable'
+    })
+    .reduce((sum, q) => sum + (q.dpCost * (q.ranks || 1)), 0)
 })
 
 const hasFreeQuality = computed(() => {
@@ -56,12 +85,21 @@ const hasFreeQuality = computed(() => {
 const availableQualities = computed(() => {
   let qualities = QUALITY_DATABASE
 
+  // Filter by type
   if (filterType.value === 'free') {
     qualities = getFreeQualities()
   } else if (filterType.value === 'negative') {
     qualities = getNegativeQualities()
+  } else if (filterType.value === 'purchasable') {
+    qualities = getPurchasableQualities()
   }
 
+  // Filter by category (only for purchasable)
+  if (filterCategory.value !== 'all' && filterType.value === 'purchasable') {
+    qualities = qualities.filter((q) => q.category === filterCategory.value)
+  }
+
+  // Search filter
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     qualities = qualities.filter(
@@ -72,18 +110,31 @@ const availableQualities = computed(() => {
     )
   }
 
-  // Filter out already selected qualities and unavailable ones
+  // Filter out unavailable qualities
   return qualities.filter((q) => {
-    // Already have this quality
-    if (props.currentQualities.some((cq) => cq.id === q.id)) return false
+    // Check stage requirement
+    if (!isQualityAvailableAtStage(q, props.stage)) return false
+
+    // Check if already at max ranks
+    const existing = props.currentQualities.find((cq) => cq.id === q.id)
+    if (existing) {
+      const maxRanks = getMaxRanksAtStage(q, props.stage)
+      if ((existing.ranks || 1) >= maxRanks) return false
+    }
 
     // Can only have one free quality
-    if (q.type === 'free' && hasFreeQuality.value) return false
+    if (q.type === 'free' && hasFreeQuality.value && !existing) return false
 
     // Check negative DP limit
-    if (q.type === 'negative') {
-      const newTotal = Math.abs(currentNegativeDP.value) + Math.abs(q.dpCost)
+    if (q.type === 'negative' && !existing) {
+      const newTotal = currentNegativeDP.value + Math.abs(q.dpCost)
       if (newTotal > maxNegativeDP.value) return false
+    }
+
+    // Check exclusive conflicts (only for new qualities)
+    if (!existing) {
+      const { conflict } = hasExclusiveConflict(q, props.currentQualities)
+      if (conflict) return false
     }
 
     return true
@@ -91,16 +142,27 @@ const availableQualities = computed(() => {
 })
 
 function selectQuality(template: QualityTemplate) {
-  const quality: Quality = {
-    id: template.id,
-    name: template.name,
-    type: template.qualityType,
-    dpCost: template.dpCost,
-    description: template.description,
-    effect: template.effect,
-    ranks: 1,
+  // Check if this quality already exists (for adding ranks)
+  const existingIndex = props.currentQualities.findIndex((q) => q.id === template.id)
+
+  if (existingIndex >= 0) {
+    // Add a rank
+    const existing = props.currentQualities[existingIndex]
+    const newRanks = (existing.ranks || 1) + 1
+    emit('updateRanks', existingIndex, newRanks)
+  } else {
+    // Add new quality
+    const quality: Quality = {
+      id: template.id,
+      name: template.name,
+      type: template.qualityType,
+      dpCost: template.dpCost,
+      description: template.description,
+      effect: template.effect,
+      ranks: 1,
+    }
+    emit('add', quality)
   }
-  emit('add', quality)
   showSelector.value = false
 }
 
@@ -117,8 +179,16 @@ function getTypeColor(qualityType: QualityTypeTag) {
   }
 }
 
-function getCategoryColor(type: 'free' | 'negative') {
-  return type === 'free' ? 'bg-green-900/30 text-green-400' : 'bg-purple-900/30 text-purple-400'
+function getCostColor(template: QualityTemplate) {
+  if (template.type === 'free') return 'bg-green-900/30 text-green-400'
+  if (template.type === 'negative') return 'bg-purple-900/30 text-purple-400'
+  return 'bg-digimon-orange-900/30 text-digimon-orange-400'
+}
+
+function getCostDisplay(template: QualityTemplate) {
+  if (template.type === 'free') return 'Free'
+  if (template.type === 'negative') return `${template.dpCost} DP`
+  return `+${template.dpCost} DP`
 }
 
 function formatQualityTypes(qualityType: QualityTypeTag | QualityTypeTag[]): string {
@@ -126,16 +196,61 @@ function formatQualityTypes(qualityType: QualityTypeTag | QualityTypeTag[]): str
   return tags.map((t) => t.charAt(0).toUpperCase()).join(', ')
 }
 
-function getQualityTypeLabel(qualityType: QualityTypeTag | QualityTypeTag[]): string {
-  const tags = getQualityTypeTags(qualityType)
-  return tags.join(', ')
+function getQualityStatus(template: QualityTemplate): { canSelect: boolean; reason?: string } {
+  // Check prerequisites
+  const prereqCheck = arePrerequisitesMet(template, props.currentQualities)
+  if (!prereqCheck.met) {
+    return { canSelect: false, reason: `Missing: ${prereqCheck.missing.join(', ')}` }
+  }
+
+  // Check exclusive conflicts
+  const exclusiveCheck = hasExclusiveConflict(template, props.currentQualities)
+  if (exclusiveCheck.conflict) {
+    const conflictNames = exclusiveCheck.conflictingIds
+      .map((id) => getQualityById(id)?.name || id)
+      .join(', ')
+    return { canSelect: false, reason: `Conflicts with: ${conflictNames}` }
+  }
+
+  // Check if GM approval required
+  if (template.requiresGMApproval) {
+    return { canSelect: true, reason: 'Requires GM approval' }
+  }
+
+  return { canSelect: true }
+}
+
+function getCurrentQualityTemplate(quality: Quality): QualityTemplate | undefined {
+  return QUALITY_DATABASE.find((t) => t.id === quality.id)
+}
+
+function getDisplayCost(quality: Quality): string {
+  const template = getCurrentQualityTemplate(quality)
+  if (!template) return `${quality.dpCost} DP`
+
+  if (template.type === 'free') return 'Free'
+  if (template.type === 'negative') {
+    const total = Math.abs(quality.dpCost) * (quality.ranks || 1)
+    return `-${total} DP`
+  }
+  const total = quality.dpCost * (quality.ranks || 1)
+  return `+${total} DP`
+}
+
+function getDisplayCostClass(quality: Quality): string {
+  const template = getCurrentQualityTemplate(quality)
+  if (!template) return 'bg-digimon-dark-600 text-digimon-dark-300'
+
+  if (template.type === 'free') return 'bg-green-900/30 text-green-400'
+  if (template.type === 'negative') return 'bg-purple-900/30 text-purple-400'
+  return 'bg-digimon-orange-900/30 text-digimon-orange-400'
 }
 </script>
 
 <template>
   <div class="space-y-4">
     <!-- Summary -->
-    <div class="flex gap-4 text-sm">
+    <div class="flex flex-wrap gap-4 text-sm">
       <div>
         <span class="text-digimon-dark-400">Free Quality:</span>
         <span :class="hasFreeQuality ? 'text-green-400' : 'text-digimon-dark-500'" class="ml-1">
@@ -144,7 +259,11 @@ function getQualityTypeLabel(qualityType: QualityTypeTag | QualityTypeTag[]): st
       </div>
       <div>
         <span class="text-digimon-dark-400">Negative DP:</span>
-        <span class="text-purple-400 ml-1"> {{ Math.abs(currentNegativeDP) }}/{{ maxNegativeDP }} </span>
+        <span class="text-purple-400 ml-1">{{ currentNegativeDP }}/{{ maxNegativeDP }}</span>
+      </div>
+      <div>
+        <span class="text-digimon-dark-400">Purchased DP:</span>
+        <span class="text-digimon-orange-400 ml-1">{{ currentPurchasableDP }}</span>
       </div>
     </div>
 
@@ -152,24 +271,22 @@ function getQualityTypeLabel(qualityType: QualityTypeTag | QualityTypeTag[]): st
     <div v-if="currentQualities.length > 0" class="space-y-2">
       <div
         v-for="(quality, index) in currentQualities"
-        :key="quality.id"
+        :key="`${quality.id}-${index}`"
         class="bg-digimon-dark-700 rounded-lg p-3 flex justify-between items-start"
       >
         <div class="flex-1">
           <div class="flex items-center gap-2 flex-wrap">
             <span class="font-semibold text-white">{{ quality.name }}</span>
+            <span v-if="quality.ranks && quality.ranks > 1" class="text-xs text-digimon-dark-300">
+              (Rank {{ quality.ranks }})
+            </span>
             <template v-for="tag in getQualityTypeTags(quality.type)" :key="tag">
               <span :class="['text-xs px-2 py-0.5 rounded uppercase', getTypeColor(tag)]">
                 {{ tag }}
               </span>
             </template>
-            <span
-              :class="[
-                'text-xs px-2 py-0.5 rounded',
-                quality.dpCost === 0 ? 'bg-green-900/30 text-green-400' : 'bg-purple-900/30 text-purple-400',
-              ]"
-            >
-              {{ quality.dpCost === 0 ? 'Free' : `${quality.dpCost} DP` }}
+            <span :class="['text-xs px-2 py-0.5 rounded', getDisplayCostClass(quality)]">
+              {{ getDisplayCost(quality) }}
             </span>
           </div>
           <p class="text-sm text-digimon-dark-400 mt-1">{{ quality.description }}</p>
@@ -201,50 +318,90 @@ function getQualityTypeLabel(qualityType: QualityTypeTag | QualityTypeTag[]): st
         </button>
       </div>
 
-      <!-- Search and filter -->
-      <div class="flex gap-2 mb-4">
+      <!-- Search and filters -->
+      <div class="space-y-2 mb-4">
         <input
           v-model="searchQuery"
           type="text"
           placeholder="Search qualities..."
-          class="flex-1 bg-digimon-dark-700 border border-digimon-dark-600 rounded px-3 py-2 text-white text-sm focus:border-digimon-orange-500 focus:outline-none"
+          class="w-full bg-digimon-dark-700 border border-digimon-dark-600 rounded px-3 py-2 text-white text-sm focus:border-digimon-orange-500 focus:outline-none"
         />
-        <select
-          v-model="filterType"
-          class="bg-digimon-dark-700 border border-digimon-dark-600 rounded px-3 py-2 text-white text-sm focus:border-digimon-orange-500 focus:outline-none"
-        >
-          <option value="all">All Types</option>
-          <option value="free">Free (0 DP)</option>
-          <option value="negative">Negative (-DP)</option>
-        </select>
+        <div class="flex gap-2">
+          <select
+            v-model="filterType"
+            class="flex-1 bg-digimon-dark-700 border border-digimon-dark-600 rounded px-3 py-2 text-white text-sm focus:border-digimon-orange-500 focus:outline-none"
+          >
+            <option value="all">All Types</option>
+            <option value="free">Free (0 DP)</option>
+            <option value="negative">Negative (-DP)</option>
+            <option value="purchasable">Purchasable (+DP)</option>
+          </select>
+          <select
+            v-if="filterType === 'purchasable'"
+            v-model="filterCategory"
+            class="flex-1 bg-digimon-dark-700 border border-digimon-dark-600 rounded px-3 py-2 text-white text-sm focus:border-digimon-orange-500 focus:outline-none"
+          >
+            <option value="all">All Categories</option>
+            <option v-for="cat in purchasableCategories" :key="cat.id" :value="cat.id">
+              {{ cat.name }}
+            </option>
+          </select>
+        </div>
       </div>
 
       <!-- Quality list -->
-      <div class="max-h-64 overflow-y-auto space-y-2">
-        <button
-          v-for="quality in availableQualities"
-          :key="quality.id"
-          type="button"
-          class="w-full text-left bg-digimon-dark-700 hover:bg-digimon-dark-600 rounded-lg p-3 transition-colors"
-          @click="selectQuality(quality)"
-        >
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="font-semibold text-white">{{ quality.name }}</span>
-            <span class="text-xs px-2 py-0.5 rounded uppercase bg-digimon-dark-600 text-digimon-dark-300">
-              [{{ formatQualityTypes(quality.qualityType) }}]
-            </span>
-            <span :class="['text-xs px-2 py-0.5 rounded', getCategoryColor(quality.type)]">
-              {{ quality.type === 'free' ? 'Free' : `${quality.dpCost} DP` }}
-            </span>
-            <span v-if="quality.maxRanks > 1" class="text-xs text-digimon-dark-400">
-              ({{ quality.maxRanks }} ranks)
-            </span>
+      <div class="max-h-80 overflow-y-auto space-y-2">
+        <template v-for="quality in availableQualities" :key="quality.id">
+          <button
+            v-if="getQualityStatus(quality).canSelect"
+            type="button"
+            class="w-full text-left bg-digimon-dark-700 hover:bg-digimon-dark-600 rounded-lg p-3 transition-colors"
+            @click="selectQuality(quality)"
+          >
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-semibold text-white">{{ quality.name }}</span>
+              <span class="text-xs px-2 py-0.5 rounded uppercase bg-digimon-dark-600 text-digimon-dark-300">
+                [{{ formatQualityTypes(quality.qualityType) }}]
+              </span>
+              <span :class="['text-xs px-2 py-0.5 rounded', getCostColor(quality)]">
+                {{ getCostDisplay(quality) }}
+              </span>
+              <span v-if="quality.maxRanks > 1" class="text-xs text-digimon-dark-400">
+                ({{ getMaxRanksAtStage(quality, stage) }} ranks max)
+              </span>
+              <span v-if="quality.stageRequirement" class="text-xs text-cyan-400/70">
+                {{ quality.stageRequirement }}+
+              </span>
+              <span v-if="quality.requiresGMApproval" class="text-xs text-yellow-500">
+                GM approval
+              </span>
+            </div>
+            <p class="text-xs text-digimon-dark-400 mt-1">{{ quality.description }}</p>
+            <p v-if="quality.prerequisites.length > 0" class="text-xs text-yellow-400/70 mt-1">
+              Requires: {{ quality.prerequisites.join(', ') }}
+            </p>
+            <p v-if="quality.limitedTag" class="text-xs text-blue-400/70 mt-1">
+              [LIMITED] - Applies to one attack only
+            </p>
+          </button>
+          <div
+            v-else
+            class="w-full text-left bg-digimon-dark-800 rounded-lg p-3 opacity-50 cursor-not-allowed"
+          >
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-semibold text-digimon-dark-400">{{ quality.name }}</span>
+              <span class="text-xs px-2 py-0.5 rounded uppercase bg-digimon-dark-700 text-digimon-dark-500">
+                [{{ formatQualityTypes(quality.qualityType) }}]
+              </span>
+              <span class="text-xs px-2 py-0.5 rounded bg-digimon-dark-700 text-digimon-dark-500">
+                {{ getCostDisplay(quality) }}
+              </span>
+            </div>
+            <p class="text-xs text-red-400/70 mt-1">
+              {{ getQualityStatus(quality).reason }}
+            </p>
           </div>
-          <p class="text-xs text-digimon-dark-400 mt-1">{{ quality.description }}</p>
-          <p v-if="quality.prerequisites.length > 0" class="text-xs text-yellow-400/70 mt-1">
-            Requires: {{ quality.prerequisites.join(', ') }}
-          </p>
-        </button>
+        </template>
 
         <div v-if="availableQualities.length === 0" class="text-center py-4 text-digimon-dark-400">
           No qualities available

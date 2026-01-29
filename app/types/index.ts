@@ -11,6 +11,7 @@ export type DigimonStage =
   | 'champion'
   | 'ultimate'
   | 'mega'
+  | 'ultra'
 
 export type DigimonAttribute = 'vaccine' | 'data' | 'virus' | 'free'
 
@@ -26,7 +27,7 @@ export type DigimonFamily =
   | 'virus-busters'
   | 'wind-guardians'
 
-export type QualityType = 'static' | 'trigger' | 'attack'
+export type QualityTypeTag = 'static' | 'trigger' | 'attack'
 
 export type AttackRange = 'melee' | 'ranged'
 export type AttackType = 'damage' | 'support'
@@ -58,6 +59,7 @@ export const STAGE_CONFIG: Record<DigimonStage, StageConfig> = {
   'champion': { stage: 'champion', dp: 40, movement: 8, woundBonus: 5, brains: 5, attacks: 3, stageBonus: 2 },
   'ultimate': { stage: 'ultimate', dp: 55, movement: 10, woundBonus: 7, brains: 7, attacks: 4, stageBonus: 3 },
   'mega': { stage: 'mega', dp: 70, movement: 12, woundBonus: 10, brains: 10, attacks: 5, stageBonus: 4 },
+  'ultra': { stage: 'ultra', dp: 85, movement: 14, woundBonus: 12, brains: 12, attacks: 6, stageBonus: 5 },
 }
 
 // === Tamer Types ===
@@ -164,22 +166,23 @@ export interface DigimonDerivedStats {
 export interface Attack {
   id: string
   name: string
-  accuracyDice: number    // Usually matches Accuracy stat
-  range: AttackRange
-  type: AttackType
-  area: AttackArea
-  tags: string[]          // [Charge], [Pass], [Signature Move], etc.
-  effects: string[]       // Effect tags like [Poison], [Stun], etc.
-  description: string
+  range: AttackRange      // [Melee] or [Ranged] - free tag
+  type: AttackType        // [Damage] or [Support] - free tag
+  tags: string[]          // Quality-based tags (e.g., "Weapon II", "Charge Attack", "Area Attack: Burst 3")
+  effect?: string         // Optional effect tag (e.g., "Paralysis", "Poison 3")
+  description: string     // Flavor text
 }
 
 export interface Quality {
   id: string
   name: string
-  type: QualityType
+  type: QualityTypeTag | QualityTypeTag[]
   dpCost: number
   description: string
   effect: string
+  ranks?: number
+  choiceId?: string
+  choiceName?: string
 }
 
 export interface Digimon {
