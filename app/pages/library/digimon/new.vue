@@ -125,6 +125,24 @@ interface AttackTagRule {
   allowedWithSignature?: string[]
 }
 
+// Get tags already used by existing attacks (Attack qualities can only apply to ONE attack)
+const usedAttackTags = computed(() => {
+  const used = new Set<string>()
+  for (const attack of form.attacks || []) {
+    for (const tag of attack.tags) {
+      // Normalize tag name to quality ID (e.g., "Weapon 2" -> "weapon", "Charge Attack" -> "charge-attack")
+      const normalized = tag.toLowerCase().replace(/\s+\d+$/, '').replace(/\s+/g, '-').replace(/:/g, '')
+      used.add(normalized)
+    }
+  }
+  return used
+})
+
+// Check if a quality-based tag is already used on another attack
+function isTagAlreadyUsed(qualityId: string): boolean {
+  return usedAttackTags.value.has(qualityId)
+}
+
 // Get available tags based on owned qualities AND current attack state
 const availableAttackTags = computed(() => {
   const tags: Array<AttackTagRule & { disabled: boolean; disabledReason?: string }> = []
@@ -134,118 +152,141 @@ const availableAttackTags = computed(() => {
 
   for (const quality of form.qualities || []) {
     if (quality.id === 'weapon') {
+      const alreadyUsed = isTagAlreadyUsed('weapon')
       tags.push({
         id: 'weapon',
         name: `Weapon ${quality.ranks || 1}`,
         description: `+${quality.ranks || 1} Accuracy and Damage`,
-        disabled: false,
+        disabled: alreadyUsed,
+        disabledReason: alreadyUsed ? 'Already used on another attack' : undefined,
       })
     }
 
     if (quality.id === 'armor-piercing') {
+      const alreadyUsed = isTagAlreadyUsed('armor-piercing')
       const hasCertainStrike = currentTags.some((t) => t.includes('Certain Strike'))
-      const blocked = hasCertainStrike && !hasSignatureMove
+      const blocked = alreadyUsed || (hasCertainStrike && !hasSignatureMove)
       tags.push({
         id: 'armor-piercing',
         name: `Armor Piercing ${quality.ranks || 1}`,
         description: `Ignores ${(quality.ranks || 1) * 2} Armor`,
         conflictsWith: ['certain-strike'],
         disabled: blocked,
-        disabledReason: blocked ? 'Cannot combine with Certain Strike (unless Signature Move)' : undefined,
+        disabledReason: alreadyUsed ? 'Already used on another attack' : blocked ? 'Cannot combine with Certain Strike (unless Signature Move)' : undefined,
       })
     }
 
     if (quality.id === 'certain-strike') {
+      const alreadyUsed = isTagAlreadyUsed('certain-strike')
       const hasArmorPiercing = currentTags.some((t) => t.includes('Armor Piercing'))
-      const blocked = hasArmorPiercing && !hasSignatureMove
+      const blocked = alreadyUsed || (hasArmorPiercing && !hasSignatureMove)
       tags.push({
         id: 'certain-strike',
         name: `Certain Strike ${quality.ranks || 1}`,
         description: 'Auto-successes on accuracy',
         conflictsWith: ['armor-piercing'],
         disabled: blocked,
-        disabledReason: blocked ? 'Cannot combine with Armor Piercing (unless Signature Move)' : undefined,
+        disabledReason: alreadyUsed ? 'Already used on another attack' : blocked ? 'Cannot combine with Armor Piercing (unless Signature Move)' : undefined,
       })
     }
 
     if (quality.id === 'charge-attack') {
-      const blocked = currentRange !== 'melee'
+      const alreadyUsed = isTagAlreadyUsed('charge-attack')
+      const blocked = alreadyUsed || currentRange !== 'melee'
       tags.push({
         id: 'charge-attack',
         name: 'Charge Attack',
         description: 'Move and attack as one Simple Action',
         rangeRestriction: 'melee',
         disabled: blocked,
-        disabledReason: blocked ? 'Requires [Melee] attack' : undefined,
+        disabledReason: alreadyUsed ? 'Already used on another attack' : blocked ? 'Requires [Melee] attack' : undefined,
       })
     }
 
     if (quality.id === 'mighty-blow') {
-      const blocked = currentRange !== 'melee'
+      const alreadyUsed = isTagAlreadyUsed('mighty-blow')
+      const blocked = alreadyUsed || currentRange !== 'melee'
       tags.push({
         id: 'mighty-blow',
         name: 'Mighty Blow',
         description: 'Stun on high damage',
         rangeRestriction: 'melee',
         disabled: blocked,
-        disabledReason: blocked ? 'Requires [Melee] attack' : undefined,
+        disabledReason: alreadyUsed ? 'Already used on another attack' : blocked ? 'Requires [Melee] attack' : undefined,
       })
     }
 
     if (quality.id === 'signature-move') {
+      const alreadyUsed = isTagAlreadyUsed('signature-move')
       const hasPoison = currentTags.some((t) => t.includes('Poison'))
       const hasHazard = currentTags.some((t) => t.includes('Hazard'))
       const hasRevitalize = currentTags.some((t) => t.includes('Revitalize'))
-      const blocked = hasPoison || hasHazard || hasRevitalize
+      const blocked = alreadyUsed || hasPoison || hasHazard || hasRevitalize
       tags.push({
         id: 'signature-move',
         name: 'Signature Move',
         description: 'Powerful attack (available Round 3+, 2 round cooldown)',
         disabled: blocked,
-        disabledReason: blocked ? 'Cannot combine with Poison, Hazard, or Revitalize' : undefined,
+        disabledReason: alreadyUsed ? 'Already used on another attack' : blocked ? 'Cannot combine with Poison, Hazard, or Revitalize' : undefined,
       })
     }
 
     if (quality.id === 'area-attack') {
+      const alreadyUsed = isTagAlreadyUsed('area-attack')
       const choiceId = quality.choiceId
       if (!choiceId || choiceId === 'blast') {
-        const blocked = currentRange !== 'ranged'
+        const blocked = alreadyUsed || currentRange !== 'ranged'
         tags.push({
           id: 'area-blast',
           name: 'Area Attack: Blast',
           description: `Circle at range (3m +BIT diameter)`,
           rangeRestriction: 'ranged',
           disabled: blocked,
-          disabledReason: blocked ? 'Requires [Ranged] attack' : undefined,
+          disabledReason: alreadyUsed ? 'Already used on another attack' : blocked ? 'Requires [Ranged] attack' : undefined,
         })
       }
       if (!choiceId || choiceId === 'pass') {
-        const blocked = currentRange !== 'melee'
+        const blocked = alreadyUsed || currentRange !== 'melee'
         tags.push({
           id: 'area-pass',
           name: 'Area Attack: Pass',
           description: 'Charge through enemies in a line',
           rangeRestriction: 'melee',
           disabled: blocked,
-          disabledReason: blocked ? 'Requires [Melee] attack' : undefined,
+          disabledReason: alreadyUsed ? 'Already used on another attack' : blocked ? 'Requires [Melee] attack' : undefined,
         })
       }
       if (!choiceId || choiceId === 'burst') {
-        tags.push({ id: 'area-burst', name: 'Area Attack: Burst', description: 'Circle from user', disabled: false })
+        const blocked = alreadyUsed
+        tags.push({ id: 'area-burst', name: 'Area Attack: Burst', description: 'Circle from user', disabled: blocked, disabledReason: blocked ? 'Already used on another attack' : undefined })
       }
       if (!choiceId || choiceId === 'close-blast') {
-        tags.push({ id: 'area-close-blast', name: 'Area Attack: Close Blast', description: 'Circle adjacent to user', disabled: false })
+        const blocked = alreadyUsed
+        tags.push({ id: 'area-close-blast', name: 'Area Attack: Close Blast', description: 'Circle adjacent to user', disabled: blocked, disabledReason: blocked ? 'Already used on another attack' : undefined })
       }
       if (!choiceId || choiceId === 'cone') {
-        tags.push({ id: 'area-cone', name: 'Area Attack: Cone', description: 'Triangle from user', disabled: false })
+        const blocked = alreadyUsed
+        tags.push({ id: 'area-cone', name: 'Area Attack: Cone', description: 'Triangle from user', disabled: blocked, disabledReason: blocked ? 'Already used on another attack' : undefined })
       }
       if (!choiceId || choiceId === 'line') {
-        tags.push({ id: 'area-line', name: 'Area Attack: Line', description: 'Pillar from user', disabled: false })
+        const blocked = alreadyUsed
+        tags.push({ id: 'area-line', name: 'Area Attack: Line', description: 'Pillar from user', disabled: blocked, disabledReason: blocked ? 'Already used on another attack' : undefined })
       }
     }
   }
 
   return tags
+})
+
+// Get effects already used by existing attacks
+const usedEffects = computed(() => {
+  const used = new Set<string>()
+  for (const attack of form.attacks || []) {
+    if (attack.effect) {
+      used.add(attack.effect.toLowerCase())
+    }
+  }
+  return used
 })
 
 // Get available effect tags based on owned qualities AND attack type
@@ -265,17 +306,19 @@ const availableEffectTags = computed(() => {
     .filter((q) => q.id.startsWith('effect-'))
     .map((q) => {
       const alignment = effectAlignment[q.id] || 'NA'
-      let disabled = false
-      let disabledReason: string | undefined
+      const effectName = q.name
+      const alreadyUsed = usedEffects.value.has(effectName.toLowerCase())
+      let disabled = alreadyUsed
+      let disabledReason: string | undefined = alreadyUsed ? 'Already used on another attack' : undefined
 
-      if (alignment === 'P' && currentType !== 'support') {
+      if (!disabled && alignment === 'P' && currentType !== 'support') {
         disabled = true
         disabledReason = 'Requires [Support] attack'
-      } else if (alignment === 'N' && currentType !== 'damage') {
+      } else if (!disabled && alignment === 'N' && currentType !== 'damage') {
         disabled = true
         disabledReason = 'Requires [Damage] attack'
       }
-      if (hasSignatureMove && signatureRestricted.includes(q.id)) {
+      if (!disabled && hasSignatureMove && signatureRestricted.includes(q.id)) {
         disabled = true
         disabledReason = 'Cannot use with Signature Move'
       }
