@@ -41,6 +41,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'add', attack: Attack): void
   (e: 'remove', index: number): void
+  (e: 'edit', index: number): void
 }>()
 
 const showSelector = ref(false)
@@ -411,13 +412,22 @@ function getAttackStats(attack: Attack) {
             {{ attack.description }}
           </p>
         </div>
-        <button
-          type="button"
-          class="text-red-400 hover:text-red-300 text-sm ml-2"
-          @click="emit('remove', index)"
-        >
-          Remove
-        </button>
+        <div class="flex gap-2 ml-2">
+          <button
+            type="button"
+            class="text-blue-400 hover:text-blue-300 text-sm"
+            @click="emit('edit', index)"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            class="text-red-400 hover:text-red-300 text-sm"
+            @click="emit('remove', index)"
+          >
+            Remove
+          </button>
+        </div>
       </div>
     </div>
 

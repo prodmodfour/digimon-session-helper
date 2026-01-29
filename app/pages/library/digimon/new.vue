@@ -135,6 +135,9 @@ const derivedStats = computed(() => {
 // Toggle for custom attack form
 const showCustomAttackForm = ref(false)
 
+// Track which attack is being edited (-1 means creating new)
+const editingAttackIndex = ref(-1)
+
 // New attack form - DDA 1.4 structure
 const newAttack = reactive({
   name: '',
@@ -400,18 +403,29 @@ function removeTagFromAttack(tagName: string) {
 
 function addCustomAttack() {
   if (!newAttack.name) return
-  form.attacks = [
-    ...(form.attacks || []),
-    {
-      id: `attack-${Date.now()}`,
-      name: newAttack.name,
-      range: newAttack.range,
-      type: newAttack.type,
-      tags: [...newAttack.tags],
-      effect: newAttack.effect || undefined,
-      description: newAttack.description,
-    },
-  ]
+
+  const attackData = {
+    id: editingAttackIndex.value >= 0
+      ? form.attacks![editingAttackIndex.value].id
+      : `attack-${Date.now()}`,
+    name: newAttack.name,
+    range: newAttack.range,
+    type: newAttack.type,
+    tags: [...newAttack.tags],
+    effect: newAttack.effect || undefined,
+    description: newAttack.description,
+  }
+
+  if (editingAttackIndex.value >= 0) {
+    // Update existing attack
+    form.attacks = form.attacks?.map((attack, i) =>
+      i === editingAttackIndex.value ? attackData : attack
+    ) || []
+  } else {
+    // Add new attack
+    form.attacks = [...(form.attacks || []), attackData]
+  }
+
   // Reset form
   newAttack.name = ''
   newAttack.range = 'melee'
@@ -419,11 +433,28 @@ function addCustomAttack() {
   newAttack.tags = []
   newAttack.effect = ''
   newAttack.description = ''
+  editingAttackIndex.value = -1
   showCustomAttackForm.value = false
 }
 
 function removeAttack(index: number) {
   form.attacks = form.attacks?.filter((_, i) => i !== index) || []
+}
+
+function editAttack(index: number) {
+  const attack = form.attacks?.[index]
+  if (!attack) return
+
+  // Populate the form with existing attack data
+  newAttack.name = attack.name
+  newAttack.range = attack.range
+  newAttack.type = attack.type
+  newAttack.tags = [...attack.tags]
+  newAttack.effect = attack.effect || ''
+  newAttack.description = attack.description
+
+  editingAttackIndex.value = index
+  showCustomAttackForm.value = true
 }
 
 type Quality = NonNullable<CreateDigimonData['qualities']>[0]
@@ -914,11 +945,13 @@ async function handleSubmit() {
           <!-- Custom attack form -->
           <div v-else class="border border-digimon-dark-600 rounded-lg p-4 bg-digimon-dark-750">
             <div class="flex justify-between items-center mb-3">
-              <h3 class="text-sm font-semibold text-digimon-dark-300">Create Custom Attack</h3>
+              <h3 class="text-sm font-semibold text-digimon-dark-300">
+                {{ editingAttackIndex >= 0 ? 'Edit Attack' : 'Create Custom Attack' }}
+              </h3>
               <button
                 type="button"
                 class="text-digimon-dark-400 hover:text-white text-sm"
-                @click="showCustomAttackForm = false"
+                @click="showCustomAttackForm = false; editingAttackIndex = -1"
               >
                 Cancel
               </button>
@@ -1070,7 +1103,7 @@ async function handleSubmit() {
               class="mt-3 bg-digimon-orange-500 hover:bg-digimon-orange-600 text-white px-4 py-2 rounded text-sm"
               @click="addCustomAttack"
             >
-              Add Custom Attack
+              {{ editingAttackIndex >= 0 ? 'Update Attack' : 'Add Custom Attack' }}
             </button>
           </div>
         </div>
@@ -1085,6 +1118,7 @@ async function handleSubmit() {
           :data-optimization="form.dataOptimization"
           @add="handleAddAttack"
           @remove="removeAttack"
+          @edit="editAttack"
         />
       </div>
 
