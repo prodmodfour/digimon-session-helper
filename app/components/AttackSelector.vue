@@ -19,11 +19,20 @@ interface Quality {
   ranks?: number
 }
 
+interface BaseStats {
+  accuracy: number
+  damage: number
+  dodge: number
+  armor: number
+  health: number
+}
+
 interface Props {
   stage: DigimonStage
   maxAttacks: number
   currentAttacks: Attack[]
   currentQualities?: Quality[]
+  baseStats?: BaseStats
 }
 
 const props = defineProps<Props>()
@@ -199,6 +208,55 @@ function getRangeColor(range: 'melee' | 'ranged') {
 function getTypeColor(type: 'damage' | 'support') {
   return type === 'damage' ? 'bg-orange-900/30 text-orange-400' : 'bg-green-900/30 text-green-400'
 }
+
+// Calculate attack stats based on base stats and tags
+function getAttackStats(attack: Attack) {
+  const baseAccuracy = props.baseStats?.accuracy ?? 0
+  const baseDamage = props.baseStats?.damage ?? 0
+
+  let damageBonus = 0
+  let accuracyBonus = 0
+  let notes: string[] = []
+
+  for (const tag of attack.tags) {
+    // Weapon I/II/III adds +1/+2/+3 damage
+    const weaponMatch = tag.match(/^Weapon\s+(\d+|I{1,3}|IV|V)$/i)
+    if (weaponMatch) {
+      const rankStr = weaponMatch[1]
+      const romanMap: Record<string, number> = { 'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5 }
+      const rank = romanMap[rankStr.toUpperCase()] || parseInt(rankStr) || 1
+      damageBonus += rank
+    }
+
+    // Certain Strike adds accuracy
+    if (tag.startsWith('Certain Strike')) {
+      accuracyBonus += 2
+    }
+
+    // Armor Piercing - note it ignores armor
+    if (tag.startsWith('Armor Piercing')) {
+      notes.push('Ignores Armor')
+    }
+
+    // Charge Attack - doubles damage
+    if (tag.startsWith('Charge Attack')) {
+      notes.push('2× DMG (Complex)')
+    }
+
+    // Mighty Blow - stun on high damage
+    if (tag.startsWith('Mighty Blow')) {
+      notes.push('Stun on hit')
+    }
+  }
+
+  return {
+    accuracy: baseAccuracy + accuracyBonus,
+    damage: baseDamage + damageBonus,
+    damageBonus,
+    accuracyBonus,
+    notes,
+  }
+}
 </script>
 
 <template>
@@ -218,6 +276,20 @@ function getTypeColor(type: 'damage' | 'support') {
             </span>
             <span :class="['text-xs px-2 py-0.5 rounded', getTypeColor(attack.type)]">
               [{{ attack.type === 'damage' ? 'Damage' : 'Support' }}]
+            </span>
+          </div>
+          <!-- Accuracy & Damage stats -->
+          <div v-if="baseStats && attack.type === 'damage'" class="flex items-center gap-3 mt-2">
+            <span class="text-sm text-yellow-400">
+              <span class="text-digimon-dark-400">ACC:</span> {{ getAttackStats(attack).accuracy }}d6
+              <span v-if="getAttackStats(attack).accuracyBonus > 0" class="text-green-400">(+{{ getAttackStats(attack).accuracyBonus }})</span>
+            </span>
+            <span class="text-sm text-red-400">
+              <span class="text-digimon-dark-400">DMG:</span> {{ getAttackStats(attack).damage }}
+              <span v-if="getAttackStats(attack).damageBonus > 0" class="text-green-400">(+{{ getAttackStats(attack).damageBonus }})</span>
+            </span>
+            <span v-for="note in getAttackStats(attack).notes" :key="note" class="text-xs text-cyan-400">
+              {{ note }}
             </span>
           </div>
           <div v-if="attack.tags.length > 0" class="flex gap-1 mt-2 flex-wrap">
