@@ -806,24 +806,15 @@ async function handleSubmit() {
           Attacks ({{ form.attacks.length }} / {{ currentStageConfig.attacks }})
         </h2>
 
-        <!-- Attack Selector from Database -->
-        <AttackSelector
-          :stage="form.stage"
-          :max-attacks="currentStageConfig.attacks"
-          :current-attacks="form.attacks"
-          @add="handleAddAttack"
-          @remove="removeAttack"
-        />
-
         <!-- Custom attack toggle -->
-        <div v-if="form.attacks.length < currentStageConfig.attacks" class="mt-4">
+        <div v-if="form.attacks.length < currentStageConfig.attacks" class="mb-4">
           <button
             v-if="!showCustomAttackForm"
             type="button"
-            class="text-sm text-digimon-dark-400 hover:text-digimon-orange-400 transition-colors"
+            class="text-sm text-digimon-orange-400 hover:text-digimon-orange-300 transition-colors"
             @click="showCustomAttackForm = true"
           >
-            + Create Custom Attack (not in database)
+            + Create Custom Attack
           </button>
 
           <!-- Custom attack form -->
@@ -993,6 +984,15 @@ async function handleSubmit() {
             </button>
           </div>
         </div>
+
+        <!-- Attack Selector from Database -->
+        <AttackSelector
+          :stage="form.stage"
+          :max-attacks="currentStageConfig.attacks"
+          :current-attacks="form.attacks"
+          @add="handleAddAttack"
+          @remove="removeAttack"
+        />
       </div>
 
       <!-- Qualities -->
