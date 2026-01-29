@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Digimon } from '../../../server/db/schema'
 import { STAGE_CONFIG, SIZE_CONFIG, type DigimonStage, type DigimonSize, type DigimonFamily } from '../../../types'
+import { QUALITY_DATABASE, getMaxRanksAtStage } from '../../../data/qualities'
 
 definePageMeta({
   title: 'Edit Digimon',
@@ -633,6 +634,48 @@ onMounted(async () => {
     form.spriteUrl = fetched.spriteUrl || ''
   }
   initialLoading.value = false
+})
+
+// Watch for stage changes - adjust quality ranks and attack tags to new max
+watch(() => form.stage, (newStage) => {
+  if (!form.qualities) return
+
+  // Adjust quality ranks to max allowed at new stage
+  form.qualities = form.qualities.map(quality => {
+    const template = QUALITY_DATABASE.find(t => t.id === quality.id)
+    if (!template) return quality
+
+    const maxRanks = getMaxRanksAtStage(template, newStage)
+    if ((quality.ranks || 1) > maxRanks) {
+      return { ...quality, ranks: maxRanks }
+    }
+    return quality
+  })
+
+  // Update attack tags that have ranks (e.g., "Weapon 2" -> "Weapon 1")
+  if (form.attacks) {
+    form.attacks = form.attacks.map(attack => {
+      const updatedTags = attack.tags.map(tag => {
+        // Check for ranked tags like "Weapon 2", "Armor Piercing 2", "Certain Strike 2"
+        const rankMatch = tag.match(/^(.+?)\s+(\d+)$/)
+        if (rankMatch) {
+          const tagName = rankMatch[1]
+          const qualityId = tagName.toLowerCase().replace(/\s+/g, '-')
+          const quality = form.qualities.find(q => q.id === qualityId)
+          if (quality) {
+            const template = QUALITY_DATABASE.find(t => t.id === qualityId)
+            if (template) {
+              const maxRanks = getMaxRanksAtStage(template, newStage)
+              const newRank = Math.min(quality.ranks || 1, maxRanks)
+              return `${tagName} ${newRank}`
+            }
+          }
+        }
+        return tag
+      })
+      return { ...attack, tags: updatedTags }
+    })
+  }
 })
 
 async function handleSubmit() {

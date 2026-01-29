@@ -128,7 +128,7 @@ function getFullQualityStatus(template: QualityTemplate): { canSelect: boolean; 
     reasons.push(`Requires ${template.stageRequirement || 'higher'} stage`)
   }
 
-  // For qualities WITH choices, each choice is independent - check in choice selector instead
+  // For qualities WITH choices, check availability based on exclusiveChoices flag
   // For qualities WITHOUT choices, check max ranks normally
   if (!template.choices || template.choices.length === 0) {
     const existing = props.currentQualities.find((cq) => cq.id === template.id)
@@ -138,8 +138,13 @@ function getFullQualityStatus(template: QualityTemplate): { canSelect: boolean; 
         reasons.push(`Already at max ranks (${maxRanks})`)
       }
     }
+  } else if (template.exclusiveChoices) {
+    // For exclusive choices (like Data Optimization), can only take ONE choice total
+    if (hasAnyOfThisQuality) {
+      reasons.push('Can only select one option')
+    }
   } else {
-    // For qualities with choices, check if ALL choices are already taken
+    // For non-exclusive choices (like Area Attack), can take one of each
     const takenChoices = props.currentQualities.filter((cq) => cq.id === template.id).map((cq) => cq.choiceId)
     const availableChoices = template.choices.filter((c) => !takenChoices.includes(c.id))
     if (availableChoices.length === 0) {

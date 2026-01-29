@@ -65,6 +65,7 @@ export interface QualityTemplate {
   stageRequirement?: DigimonStage // Minimum stage required (e.g., 'ultimate')
   maxRanksByStage?: Partial<Record<DigimonStage, number>> // Stage-limited rank caps
   choices?: QualityChoice[] // Sub-options (e.g., Data Optimization options)
+  exclusiveChoices?: boolean // If true, can only take ONE choice total (not one of each)
   limitedTag?: boolean // [LIMITED] - can only apply to one attack
   exclusiveWith?: string[] // IDs of mutually exclusive qualities
   requiresGMApproval?: boolean // Some qualities need GM approval
@@ -359,6 +360,7 @@ Rank 2 (requires Avoidance): After Agility and Avoidance trigger, must reroll al
     qualityType: 'static',
     dpCost: 1, // Base cost, varies by choice
     maxRanks: 1,
+    exclusiveChoices: true, // Can only take ONE choice total, not one of each
     prerequisites: [],
     description: 'Choose a combat role optimization. Can only take once.',
     effect: `Choose one optimization to define your Digimon's combat role. You may only take this quality once.`,
