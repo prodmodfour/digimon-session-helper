@@ -35,9 +35,12 @@ interface Quality {
 interface Props {
   stage: DigimonStage
   currentQualities: Quality[]
+  canAdd?: boolean // Whether adding new qualities is allowed (has DP remaining)
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  canAdd: true,
+})
 const emit = defineEmits<{
   (e: 'add', quality: Quality): void
   (e: 'remove', index: number): void
@@ -494,10 +497,16 @@ function isChoicePrereqMet(choice: NonNullable<QualityTemplate['choices']>[0]): 
     <div v-if="!showSelector">
       <button
         type="button"
-        class="w-full border-2 border-dashed border-digimon-dark-600 rounded-lg p-4 text-digimon-dark-400 hover:border-digimon-dark-500 hover:text-digimon-dark-300 transition-colors"
-        @click="showSelector = true"
+        :disabled="!canAdd"
+        :class="[
+          'w-full border-2 border-dashed rounded-lg p-4 transition-colors',
+          canAdd
+            ? 'border-digimon-dark-600 text-digimon-dark-400 hover:border-digimon-dark-500 hover:text-digimon-dark-300'
+            : 'border-red-900/50 text-red-400/50 cursor-not-allowed'
+        ]"
+        @click="canAdd && (showSelector = true)"
       >
-        + Add Quality
+        {{ canAdd ? '+ Add Quality' : 'No DP remaining for qualities' }}
       </button>
     </div>
 

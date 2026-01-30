@@ -34,6 +34,7 @@ interface Props {
   currentAttacks: Attack[]
   currentQualities?: Quality[]
   baseStats?: BaseStats
+  bonusStats?: BaseStats
   dataOptimization?: string
 }
 
@@ -212,10 +213,10 @@ function getTypeColor(type: 'damage' | 'support') {
   return type === 'damage' ? 'bg-orange-900/30 text-orange-400' : 'bg-green-900/30 text-green-400'
 }
 
-// Calculate attack stats based on base stats, data optimization, qualities, and tags
+// Calculate attack stats based on base stats, bonus stats, data optimization, qualities, and tags
 function getAttackStats(attack: Attack) {
-  const baseAccuracy = props.baseStats?.accuracy ?? 0
-  const baseDamage = props.baseStats?.damage ?? 0
+  const baseAccuracy = (props.baseStats?.accuracy ?? 0) + (props.bonusStats?.accuracy ?? 0)
+  const baseDamage = (props.baseStats?.damage ?? 0) + (props.bonusStats?.damage ?? 0)
 
   let damageBonus = 0
   let accuracyBonus = 0

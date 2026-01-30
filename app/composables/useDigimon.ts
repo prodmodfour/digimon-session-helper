@@ -1,6 +1,11 @@
 import type { Digimon } from '../server/db/schema'
 import { STAGE_CONFIG, SIZE_CONFIG, type DigimonStage, type DigimonSize } from '../types'
 
+// Extended type for update requests with sync option
+export type UpdateDigimonData = Partial<Digimon> & {
+  syncBonusDP?: boolean
+}
+
 export interface CreateDigimonData {
   name: string
   species: string
@@ -82,7 +87,7 @@ export function useDigimon() {
     }
   }
 
-  async function updateDigimon(id: string, data: Partial<Digimon>): Promise<Digimon | null> {
+  async function updateDigimon(id: string, data: UpdateDigimonData): Promise<Digimon | null> {
     loading.value = true
     error.value = null
     try {

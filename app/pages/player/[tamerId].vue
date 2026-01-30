@@ -136,6 +136,95 @@ function switchCharacter() {
   selectedTamerId.value = null
   navigateTo('/player')
 }
+
+// Parse rank from tag with roman or arabic numerals (e.g., "Weapon II" = 2, "Weapon 3" = 3)
+function parseTagRank(tag: string, prefix: string): number {
+  const romanToNumber: Record<string, number> = {
+    'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5,
+    'VI': 6, 'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10
+  }
+  const regex = new RegExp(`^${prefix}\\s+(\\d+|[IVX]+)$`, 'i')
+  const match = tag.match(regex)
+  if (match) {
+    const rankStr = match[1].toUpperCase()
+    return romanToNumber[rankStr] || parseInt(match[1]) || 0
+  }
+  return 0
+}
+
+// Check if attack has a specific tag pattern
+function hasTag(tags: string[], pattern: string): boolean {
+  return tags.some(t => t.toLowerCase().includes(pattern.toLowerCase()))
+}
+
+// Calculate attack bonuses from tags and qualities
+function getAttackBonuses(
+  digimon: Digimon,
+  attack: { range: 'melee' | 'ranged'; tags: string[] }
+): { accuracy: number; damage: number } {
+  let accuracy = 0
+  let damage = 0
+  const qualities = digimon.qualities || []
+  const tags = attack.tags || []
+
+  // Helper to check if digimon has a quality
+  const hasQuality = (id: string) => qualities.some(q => q.id === id)
+
+  // Data Optimization bonuses
+  const dataOptQuality = qualities.find(q => q.id === 'data-optimization')
+  const dataOpt = dataOptQuality?.choiceId || (digimon as any).dataOptimization
+  if (dataOpt === 'close-combat') {
+    if (attack.range === 'melee') accuracy += 2
+    else if (attack.range === 'ranged') accuracy -= 1
+  } else if (dataOpt === 'ranged-striker') {
+    if (attack.range === 'ranged') accuracy += 2
+  }
+
+  // Tag-based bonuses
+  for (const tag of tags) {
+    // Weapon adds +Rank to both Accuracy AND Damage
+    const weaponRank = parseTagRank(tag, 'Weapon')
+    if (weaponRank > 0) {
+      accuracy += weaponRank
+      damage += weaponRank
+    }
+
+    // Certain Strike adds +2 accuracy per rank
+    const certainStrikeRank = parseTagRank(tag, 'Certain Strike')
+    if (certainStrikeRank > 0) {
+      accuracy += certainStrikeRank * 2
+    }
+  }
+
+  // Digizoid Weapon bonuses (only for [Weapon] tagged attacks)
+  const hasWeaponTag = hasTag(tags, 'weapon')
+  if (hasWeaponTag) {
+    if (hasQuality('digizoid-weapon-chrome')) { accuracy += 2; damage += 1 }
+    if (hasQuality('digizoid-weapon-black')) { accuracy += 2 }
+    if (hasQuality('digizoid-weapon-brown')) { damage += 2 }
+    if (hasQuality('digizoid-weapon-blue')) { accuracy += 2; damage += 2 }
+    if (hasQuality('digizoid-weapon-gold')) { accuracy += 4; damage += 1 }
+    if (hasQuality('digizoid-weapon-obsidian')) { accuracy += 2; damage += 2 }
+    if (hasQuality('digizoid-weapon-red')) { damage += 6 }
+  }
+
+  return { accuracy, damage }
+}
+
+// Calculate attack accuracy pool (base + bonus + tag/quality bonuses)
+function getAttackAccuracy(digimon: Digimon, attack: { range: 'melee' | 'ranged'; tags: string[] }): number {
+  const bonusStats = (digimon as any).bonusStats || { accuracy: 0 }
+  const bonuses = getAttackBonuses(digimon, attack)
+  return digimon.baseStats.accuracy + (bonusStats.accuracy || 0) + bonuses.accuracy
+}
+
+// Calculate attack damage pool (base + bonus + tag/quality bonuses)
+// Note: Stage bonus is NOT added to the pool - it's added to final damage after the roll
+function getAttackDamage(digimon: Digimon, attack: { range: 'melee' | 'ranged'; tags: string[] }): number {
+  const bonusStats = (digimon as any).bonusStats || { damage: 0 }
+  const bonuses = getAttackBonuses(digimon, attack)
+  return digimon.baseStats.damage + (bonusStats.damage || 0) + bonuses.damage
+}
 </script>
 
 <template>
@@ -403,20 +492,31 @@ function switchCharacter() {
                     :key="attack.id"
                     class="bg-digimon-dark-700 rounded-lg p-3"
                   >
-                    <div class="flex items-center gap-2 flex-wrap">
-                      <span class="font-semibold text-white">{{ attack.name }}</span>
-                      <span :class="[
-                        'text-xs px-1.5 py-0.5 rounded',
-                        attack.range === 'melee' ? 'bg-red-900/50 text-red-400' : 'bg-blue-900/50 text-blue-400'
-                      ]">
-                        [{{ attack.range === 'melee' ? 'Melee' : 'Ranged' }}]
-                      </span>
-                      <span :class="[
-                        'text-xs px-1.5 py-0.5 rounded',
-                        attack.type === 'damage' ? 'bg-orange-900/50 text-orange-400' : 'bg-green-900/50 text-green-400'
-                      ]">
-                        [{{ attack.type === 'damage' ? 'Damage' : 'Support' }}]
-                      </span>
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <span class="font-semibold text-white">{{ attack.name }}</span>
+                        <span :class="[
+                          'text-xs px-1.5 py-0.5 rounded',
+                          attack.range === 'melee' ? 'bg-red-900/50 text-red-400' : 'bg-blue-900/50 text-blue-400'
+                        ]">
+                          [{{ attack.range === 'melee' ? 'Melee' : 'Ranged' }}]
+                        </span>
+                        <span :class="[
+                          'text-xs px-1.5 py-0.5 rounded',
+                          attack.type === 'damage' ? 'bg-orange-900/50 text-orange-400' : 'bg-green-900/50 text-green-400'
+                        ]">
+                          [{{ attack.type === 'damage' ? 'Damage' : 'Support' }}]
+                        </span>
+                      </div>
+                      <!-- Attack Stats -->
+                      <div class="flex items-center gap-3 text-sm">
+                        <span class="text-cyan-400">
+                          ACC: {{ getAttackAccuracy(digimon, { range: attack.range, tags: attack.tags || [] }) }}
+                        </span>
+                        <span class="text-orange-400">
+                          DMG: {{ getAttackDamage(digimon, { range: attack.range, tags: attack.tags || [] }) }}
+                        </span>
+                      </div>
                     </div>
                     <div v-if="attack.tags && attack.tags.length > 0" class="flex gap-1 mt-2 flex-wrap">
                       <span

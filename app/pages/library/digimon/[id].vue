@@ -35,6 +35,15 @@ const form = reactive({
   qualities: [] as Digimon['qualities'],
   dataOptimization: '',
   bonusDP: 0,
+  bonusStats: {
+    accuracy: 0,
+    damage: 0,
+    dodge: 0,
+    armor: 0,
+    health: 0,
+  },
+  bonusDPForQualities: 0,
+  syncBonusDP: true,
   partnerId: '' as string | null,
   isEnemy: false,
   notes: '',
@@ -77,8 +86,8 @@ const currentStageConfig = computed(() => STAGE_CONFIG[form.stage])
 const currentSizeConfig = computed(() => SIZE_CONFIG[form.size])
 
 // DP calculation - DDA 1.4 rules:
-// Stats cost 1 DP per point
-// Qualities have variable DP costs (can be positive, negative, or zero)
+// Base stats cost 1 DP per point from BASE DP pool
+// Qualities cost from BASE DP pool OR bonus quality DP pool
 const dpUsedOnStats = computed(() => {
   return Object.values(form.baseStats).reduce((a, b) => a + b, 0)
 })
@@ -87,21 +96,81 @@ const dpUsedOnQualities = computed(() => {
   return form.qualities.reduce((total, q) => total + (q.dpCost || 0), 0)
 })
 
-const dpUsed = computed(() => {
-  return dpUsedOnStats.value + dpUsedOnQualities.value
+// Base DP pool (from stage only - NOT including bonus DP)
+const baseDP = computed(() => {
+  return currentStageConfig.value.dp
 })
 
-const totalDP = computed(() => {
-  return currentStageConfig.value.dp + (form.bonusDP || 0)
+// How much of quality spending comes from base DP (vs bonus DP for qualities)
+const qualitiesFromBaseDP = computed(() => {
+  const baseDPAvailableForQualities = Math.max(0, baseDP.value - dpUsedOnStats.value)
+  return Math.min(dpUsedOnQualities.value, baseDPAvailableForQualities)
 })
 
-const dpRemaining = computed(() => {
-  return totalDP.value - dpUsed.value
+// Base DP used = stats + qualities (only qualities that fit in remaining base DP)
+// Qualities beyond base DP are paid from bonus DP for qualities
+const baseDPUsed = computed(() => {
+  return dpUsedOnStats.value + qualitiesFromBaseDP.value
 })
+
+// Base DP remaining (can go negative if overspent)
+const baseDPRemaining = computed(() => {
+  return baseDP.value - baseDPUsed.value
+})
+
+// Total bonus DP spent on stats
+const bonusStatsTotal = computed(() => {
+  return Object.values(form.bonusStats).reduce((a, b) => a + b, 0)
+})
+
+// Bonus DP available for stats (excluding DP allocated to qualities)
+const bonusDPForStats = computed(() => {
+  return Math.max(0, (form.bonusDP || 0) - (form.bonusDPForQualities || 0))
+})
+
+// Check if bonus stats overspent (using DP meant for qualities)
+const bonusStatsOverspent = computed(() => {
+  return bonusStatsTotal.value > bonusDPForStats.value
+})
+
+// Total bonus DP allocated (stats + qualities)
+const bonusDPAllocated = computed(() => {
+  return bonusStatsTotal.value + (form.bonusDPForQualities || 0)
+})
+
+// Bonus DP remaining
+const bonusDPRemaining = computed(() => {
+  return (form.bonusDP || 0) - bonusDPAllocated.value
+})
+
+// Can add qualities if there's DP available for qualities
+// Available = (base DP not used on stats) + bonus DP for qualities
+const canAddQualities = computed(() => {
+  const baseDPAvailableForQualities = Math.max(0, baseDP.value - dpUsedOnStats.value)
+  const totalDPForQualities = baseDPAvailableForQualities + (form.bonusDPForQualities || 0)
+  return dpUsedOnQualities.value < totalDPForQualities
+})
+
+// Minimum bonus DP required for qualities (quality spending that exceeds base DP coverage)
+const minBonusDPForQualities = computed(() => {
+  const baseDPAvailableForQualities = Math.max(0, baseDP.value - dpUsedOnStats.value)
+  return Math.max(0, dpUsedOnQualities.value - baseDPAvailableForQualities)
+})
+
+// For display compatibility
+const totalDP = computed(() => baseDP.value)
+const dpUsed = computed(() => dpUsedOnStats.value + dpUsedOnQualities.value)
+const dpRemaining = computed(() => baseDPRemaining.value)
 
 // Derived Stats calculation - DDA 1.4 rules (page 111)
 const derivedStats = computed(() => {
-  const { accuracy, damage, dodge, armor, health } = form.baseStats
+  // Total stats = base + bonus
+  const accuracy = form.baseStats.accuracy + (form.bonusStats.accuracy || 0)
+  const damage = form.baseStats.damage + (form.bonusStats.damage || 0)
+  const dodge = form.baseStats.dodge + (form.bonusStats.dodge || 0)
+  const armor = form.baseStats.armor + (form.bonusStats.armor || 0)
+  const health = form.baseStats.health + (form.bonusStats.health || 0)
+
   const stageConfig = currentStageConfig.value
   const sizeConfig = currentSizeConfig.value
 
@@ -139,7 +208,7 @@ const derivedStats = computed(() => {
     movement,
     baseMovement,
     stageBonus: stageConfig.stageBonus,
-    // Attack/Defense pools (raw stats)
+    // Attack/Defense pools (total stats = base + bonus)
     accuracyPool: accuracy,
     damagePool: damage,
     dodgePool: dodge,
@@ -650,6 +719,53 @@ watch(() => form.spriteUrl, () => {
   spriteError.value = false
 })
 
+// Enforce minimum bonus DP for qualities when qualities require it
+watch(() => form.bonusDPForQualities, (newVal) => {
+  if (newVal < minBonusDPForQualities.value) {
+    form.bonusDPForQualities = minBonusDPForQualities.value
+  }
+})
+
+// Track previous stat values to revert changes that exceed limits
+const prevBonusStats = ref({ ...form.bonusStats })
+const prevBaseStats = ref({ ...form.baseStats })
+
+// Enforce bonus stats don't exceed available bonus DP for stats
+watch(() => form.bonusStats, (stats) => {
+  const total = Object.values(stats).reduce((a, b) => a + b, 0)
+  const max = bonusDPForStats.value
+  if (total > max) {
+    // Find which stat changed and revert it
+    for (const key of Object.keys(stats) as (keyof typeof stats)[]) {
+      if (stats[key] !== prevBonusStats.value[key]) {
+        form.bonusStats[key] = prevBonusStats.value[key]
+      }
+    }
+  } else {
+    // Update previous values
+    prevBonusStats.value = { ...stats }
+  }
+}, { deep: true })
+
+// Enforce base stats don't exceed base DP (accounting for qualities that use base DP)
+watch(() => form.baseStats, (stats) => {
+  const total = Object.values(stats).reduce((a, b) => a + b, 0)
+  // Qualities not covered by bonus DP must come from base DP
+  const qualitiesFromBaseDP = Math.max(0, dpUsedOnQualities.value - (form.bonusDPForQualities || 0))
+  const maxForStats = baseDP.value - qualitiesFromBaseDP
+  if (total > maxForStats) {
+    // Find which stat changed and revert it
+    for (const key of Object.keys(stats) as (keyof typeof stats)[]) {
+      if (stats[key] !== prevBaseStats.value[key]) {
+        form.baseStats[key] = prevBaseStats.value[key]
+      }
+    }
+  } else {
+    // Update previous values
+    prevBaseStats.value = { ...stats }
+  }
+}, { deep: true })
+
 onMounted(async () => {
   await Promise.all([fetchTamers(), fetchDigimon()])
 
@@ -669,6 +785,12 @@ onMounted(async () => {
     form.qualities = [...(fetched.qualities || [])]
     form.dataOptimization = fetched.dataOptimization || ''
     form.bonusDP = fetched.bonusDP || 0
+    const defaultBonusStats = { accuracy: 0, damage: 0, dodge: 0, armor: 0, health: 0 }
+    form.bonusStats = { ...defaultBonusStats, ...((fetched as any).bonusStats || {}) }
+    form.bonusDPForQualities = (fetched as any).bonusDPForQualities || 0
+    // Initialize previous values for stat enforcement
+    prevBaseStats.value = { ...form.baseStats }
+    prevBonusStats.value = { ...form.bonusStats }
     form.partnerId = fetched.partnerId || ''
     form.isEnemy = fetched.isEnemy
     form.notes = fetched.notes || ''
@@ -736,6 +858,9 @@ async function handleSubmit() {
     qualities: [...form.qualities],
     dataOptimization: form.dataOptimization || undefined,
     bonusDP: form.bonusDP || 0,
+    bonusStats: { ...form.bonusStats },
+    bonusDPForQualities: form.bonusDPForQualities || 0,
+    syncBonusDP: form.syncBonusDP,
     partnerId: form.partnerId || null,
     isEnemy: form.isEnemy,
     notes: form.notes || undefined,
@@ -905,20 +1030,10 @@ async function handleCopy() {
       <!-- Stage Info -->
       <div class="bg-digimon-dark-700/50 rounded-xl p-4 border border-digimon-dark-600">
         <h3 class="font-semibold text-digimon-orange-400 mb-2 capitalize">{{ form.stage }} Stage Stats</h3>
-        <div class="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
           <div>
             <span class="text-digimon-dark-400">Base DP:</span>
             <span class="text-white ml-1">{{ currentStageConfig.dp }}</span>
-          </div>
-          <div>
-            <label class="text-digimon-dark-400 block mb-1">Bonus DP:</label>
-            <input
-              v-model.number="form.bonusDP"
-              type="number"
-              min="0"
-              class="w-20 bg-digimon-dark-700 border border-digimon-dark-600 rounded px-2 py-1
-                     text-white text-sm focus:border-digimon-orange-500 focus:outline-none"
-            />
           </div>
           <div>
             <span class="text-digimon-dark-400">Total DP:</span>
@@ -939,6 +1054,162 @@ async function handleCopy() {
         </div>
       </div>
 
+      <!-- Bonus DP Management -->
+      <div class="bg-digimon-dark-800 rounded-xl p-6 border border-digimon-dark-700">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="font-display text-xl font-semibold text-white">Bonus DP</h2>
+          <div class="flex items-center gap-4">
+            <div
+              :class="[
+                'text-sm px-3 py-1 rounded',
+                bonusDPAllocated === form.bonusDP
+                  ? 'bg-green-900/30 text-green-400'
+                  : bonusDPAllocated > form.bonusDP
+                    ? 'bg-red-900/30 text-red-400'
+                    : 'bg-yellow-900/30 text-yellow-400',
+              ]"
+            >
+              {{ bonusDPAllocated }} / {{ form.bonusDP }} allocated
+            </div>
+            <label
+              v-if="form.evolvesFromId || form.evolutionPathIds.length > 0"
+              class="flex items-center gap-2 cursor-pointer"
+            >
+              <input
+                v-model="form.syncBonusDP"
+                type="checkbox"
+                class="w-4 h-4 bg-digimon-dark-700 border border-digimon-dark-600 rounded
+                       text-digimon-orange-500 focus:ring-digimon-orange-500"
+              />
+              <span class="text-sm text-digimon-dark-300">Sync across evolutions</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block text-sm text-digimon-dark-400 mb-1">Total Bonus DP</label>
+            <input
+              v-model.number="form.bonusDP"
+              type="number"
+              min="0"
+              class="w-full bg-digimon-dark-700 border border-digimon-dark-600 rounded-lg px-3 py-2
+                     text-white focus:border-digimon-orange-500 focus:outline-none"
+            />
+            <p class="text-xs text-digimon-dark-500 mt-1">XP earned, GM rewards, etc.</p>
+          </div>
+          <div>
+            <label class="block text-sm text-digimon-dark-400 mb-1">Allocated to Qualities</label>
+            <input
+              v-model.number="form.bonusDPForQualities"
+              type="number"
+              :min="minBonusDPForQualities"
+              :max="form.bonusDP"
+              class="w-full bg-digimon-dark-700 border border-digimon-dark-600 rounded-lg px-3 py-2
+                     text-white focus:border-digimon-orange-500 focus:outline-none"
+            />
+            <p class="text-xs text-digimon-dark-500 mt-1">
+              {{ minBonusDPForQualities > 0 ? `Min ${minBonusDPForQualities} required for current qualities` : 'Variable cost per quality' }}
+            </p>
+          </div>
+        </div>
+
+        <!-- Bonus Stats Allocation -->
+        <div class="border-t border-digimon-dark-600 pt-4">
+          <div class="flex justify-between items-center mb-3">
+            <h3 :class="['text-sm font-semibold', bonusStatsOverspent ? 'text-red-400' : 'text-digimon-dark-300']">
+              Bonus Stats ({{ bonusStatsTotal }} / {{ bonusDPForStats }} DP)
+              <span v-if="bonusStatsOverspent" class="text-red-400">⚠️</span>
+            </h3>
+          </div>
+          <div class="grid grid-cols-5 gap-3">
+            <div class="text-center">
+              <label class="block text-xs text-digimon-dark-400 mb-1">Accuracy</label>
+              <input
+                v-model.number="form.bonusStats.accuracy"
+                type="number"
+                min="0"
+                class="w-full bg-digimon-dark-700 border border-digimon-dark-600 rounded-lg px-2 py-2
+                       text-white text-center focus:border-digimon-orange-500 focus:outline-none"
+              />
+              <p v-if="form.bonusStats.accuracy > 0" class="text-xs text-green-400 mt-1">+{{ form.bonusStats.accuracy }}</p>
+            </div>
+            <div class="text-center">
+              <label class="block text-xs text-digimon-dark-400 mb-1">Damage</label>
+              <input
+                v-model.number="form.bonusStats.damage"
+                type="number"
+                min="0"
+                class="w-full bg-digimon-dark-700 border border-digimon-dark-600 rounded-lg px-2 py-2
+                       text-white text-center focus:border-digimon-orange-500 focus:outline-none"
+              />
+              <p v-if="form.bonusStats.damage > 0" class="text-xs text-green-400 mt-1">+{{ form.bonusStats.damage }}</p>
+            </div>
+            <div class="text-center">
+              <label class="block text-xs text-digimon-dark-400 mb-1">Dodge</label>
+              <input
+                v-model.number="form.bonusStats.dodge"
+                type="number"
+                min="0"
+                class="w-full bg-digimon-dark-700 border border-digimon-dark-600 rounded-lg px-2 py-2
+                       text-white text-center focus:border-digimon-orange-500 focus:outline-none"
+              />
+              <p v-if="form.bonusStats.dodge > 0" class="text-xs text-green-400 mt-1">+{{ form.bonusStats.dodge }}</p>
+            </div>
+            <div class="text-center">
+              <label class="block text-xs text-digimon-dark-400 mb-1">Armor</label>
+              <input
+                v-model.number="form.bonusStats.armor"
+                type="number"
+                min="0"
+                class="w-full bg-digimon-dark-700 border border-digimon-dark-600 rounded-lg px-2 py-2
+                       text-white text-center focus:border-digimon-orange-500 focus:outline-none"
+              />
+              <p v-if="form.bonusStats.armor > 0" class="text-xs text-green-400 mt-1">+{{ form.bonusStats.armor }}</p>
+            </div>
+            <div class="text-center">
+              <label class="block text-xs text-digimon-dark-400 mb-1">Health</label>
+              <input
+                v-model.number="form.bonusStats.health"
+                type="number"
+                min="0"
+                class="w-full bg-digimon-dark-700 border border-digimon-dark-600 rounded-lg px-2 py-2
+                       text-white text-center focus:border-digimon-orange-500 focus:outline-none"
+              />
+              <p v-if="form.bonusStats.health > 0" class="text-xs text-green-400 mt-1">+{{ form.bonusStats.health }}</p>
+            </div>
+          </div>
+          <!-- Bonus DP Allocation Summary -->
+          <div class="mt-3 flex items-center gap-3 flex-wrap">
+            <span
+              :class="[
+                'text-sm px-3 py-1 rounded',
+                bonusDPRemaining === 0 && !bonusStatsOverspent && 'bg-green-900/30 text-green-400',
+                bonusDPRemaining > 0 && !bonusStatsOverspent && 'bg-yellow-900/30 text-yellow-400',
+                (bonusDPRemaining < 0 || bonusStatsOverspent) && 'bg-red-900/30 text-red-400',
+              ]"
+            >
+              {{ bonusDPRemaining }} bonus DP remaining
+            </span>
+            <span class="text-xs text-digimon-dark-400">
+              Stats: {{ bonusStatsTotal }}/{{ bonusDPForStats }} | Qualities: {{ form.bonusDPForQualities || 0 }} | Total: {{ bonusDPAllocated }} / {{ form.bonusDP || 0 }}
+            </span>
+          </div>
+          <div v-if="bonusStatsOverspent" class="mt-2 p-2 bg-red-900/30 border border-red-500/50 rounded-lg">
+            <p class="text-sm text-red-400">
+              ⚠️ Bonus stats ({{ bonusStatsTotal }}) exceed available DP for stats ({{ bonusDPForStats }}).
+              You're using {{ bonusStatsTotal - bonusDPForStats }} DP allocated for qualities.
+            </p>
+          </div>
+        </div>
+
+        <div v-if="form.syncBonusDP && (form.evolvesFromId || form.evolutionPathIds.length > 0)" class="mt-4 p-3 bg-cyan-900/20 border border-cyan-500/30 rounded-lg">
+          <p class="text-sm text-cyan-400">
+            Bonus DP and stat allocations will sync to all linked evolution forms when you save.
+          </p>
+        </div>
+      </div>
+
       <!-- Base Stats -->
       <div class="bg-digimon-dark-800 rounded-xl p-6 border border-digimon-dark-700">
         <div class="flex justify-between items-center mb-4">
@@ -947,15 +1218,15 @@ async function handleCopy() {
             <span
               :class="[
                 'text-sm px-3 py-1 rounded',
-                dpRemaining === 0 && 'bg-green-900/30 text-green-400',
-                dpRemaining > 0 && 'bg-yellow-900/30 text-yellow-400',
-                dpRemaining < 0 && 'bg-red-900/30 text-red-400',
+                baseDPRemaining === 0 && 'bg-green-900/30 text-green-400',
+                baseDPRemaining > 0 && 'bg-yellow-900/30 text-yellow-400',
+                baseDPRemaining < 0 && 'bg-red-900/30 text-red-400',
               ]"
             >
-              {{ dpRemaining }} DP remaining
+              {{ baseDPRemaining }} Base DP remaining
             </span>
             <span class="text-xs text-digimon-dark-400">
-              Stats: {{ dpUsedOnStats }} | Qualities: {{ dpUsedOnQualities }} | Total: {{ dpUsed }} / {{ totalDP }}
+              Stats: {{ dpUsedOnStats }} DP | Qualities: {{ qualitiesFromBaseDP }} DP
             </span>
           </div>
         </div>
@@ -1073,9 +1344,9 @@ async function handleCopy() {
         </h2>
 
         <!-- Custom attack toggle -->
-        <div v-if="form.attacks.length < currentStageConfig.attacks" class="mb-4">
+        <div v-if="form.attacks.length < currentStageConfig.attacks || showCustomAttackForm" class="mb-4">
           <button
-            v-if="!showCustomAttackForm"
+            v-if="!showCustomAttackForm && form.attacks.length < currentStageConfig.attacks"
             type="button"
             class="w-full border-2 border-dashed border-digimon-dark-600 rounded-lg p-4
                    text-digimon-dark-400 hover:border-digimon-dark-500 hover:text-digimon-dark-300
@@ -1262,6 +1533,7 @@ async function handleCopy() {
           :current-attacks="form.attacks"
           :current-qualities="form.qualities"
           :base-stats="form.baseStats"
+          :bonus-stats="form.bonusStats"
           :data-optimization="form.dataOptimization"
           @add="handleAddAttack"
           @remove="removeAttack"
@@ -1275,6 +1547,7 @@ async function handleCopy() {
         <QualitySelector
           :stage="form.stage"
           :current-qualities="form.qualities"
+          :can-add="canAddQualities"
           @add="handleAddQuality"
           @remove="removeQuality"
           @update-ranks="handleUpdateQualityRanks"

@@ -88,6 +88,8 @@ export default defineEventHandler(async (event) => {
     dataOptimization: body.dataOptimization || null,
     baseDP: stageConfig.dp,
     bonusDP: body.bonusDP || 0,
+    bonusStats: { accuracy: 0, damage: 0, dodge: 0, armor: 0, health: 0 },
+    bonusDPForQualities: 0,
     currentWounds: 0,
     currentStance: 'neutral',
     evolutionPathIds: [],

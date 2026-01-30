@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DigimonStage } from '../../../types'
 import type { EvolutionChainEntry } from '../../../composables/useEvolution'
+import type { Digimon } from '../../../server/db/schema'
 
 definePageMeta({
   title: 'New Evolution Line',
@@ -9,9 +10,10 @@ definePageMeta({
 const router = useRouter()
 const { createEvolutionLine, loading, error } = useEvolution()
 const { tamers, fetchTamers } = useTamers()
+const { digimonList, fetchDigimon } = useDigimon()
 
-onMounted(() => {
-  fetchTamers()
+onMounted(async () => {
+  await Promise.all([fetchTamers(), fetchDigimon()])
 })
 
 const stages: DigimonStage[] = ['fresh', 'in-training', 'rookie', 'champion', 'ultimate', 'mega']
@@ -28,6 +30,7 @@ const form = reactive({
 const newEntry = reactive({
   stage: 'rookie' as DigimonStage,
   species: '',
+  digimonId: null as string | null,
   hasRequirements: false,
   requirementType: 'battles' as typeof requirementTypes[number],
   requirementValue: 5,
@@ -35,13 +38,29 @@ const newEntry = reactive({
   requirementItemName: '',
 })
 
+// Filter Digimon by selected stage
+const digimonForStage = computed(() => {
+  return digimonList.value.filter(d => d.stage === newEntry.stage)
+})
+
+// When a Digimon is selected, auto-fill species name
+function handleDigimonSelect(digimonId: string | null) {
+  newEntry.digimonId = digimonId
+  if (digimonId) {
+    const selected = digimonList.value.find(d => d.id === digimonId)
+    if (selected) {
+      newEntry.species = selected.species
+    }
+  }
+}
+
 function addChainEntry() {
   if (!newEntry.species.trim()) return
 
   const entry: EvolutionChainEntry = {
     stage: newEntry.stage,
     species: newEntry.species,
-    digimonId: null,
+    digimonId: newEntry.digimonId,
     requirements: newEntry.hasRequirements
       ? {
           type: newEntry.requirementType,
@@ -62,6 +81,7 @@ function addChainEntry() {
 
   // Reset form
   newEntry.species = ''
+  newEntry.digimonId = null
   newEntry.hasRequirements = false
   newEntry.requirementValue = 5
   newEntry.requirementDescription = ''
@@ -161,6 +181,12 @@ function applyTemplate(template: typeof templates[0]) {
     digimonId: null,
     requirements: null,
   }))
+}
+
+// Get linked Digimon for chain entry display
+function getLinkedDigimon(digimonId: string | null): Digimon | null {
+  if (!digimonId) return null
+  return digimonList.value.find(d => d.id === digimonId) || null
 }
 </script>
 
@@ -262,6 +288,14 @@ function applyTemplate(template: typeof templates[0]) {
               </button>
             </div>
 
+            <div v-if="getLinkedDigimon(entry.digimonId)?.spriteUrl" class="w-12 h-12 bg-digimon-dark-600 rounded overflow-hidden flex items-center justify-center shrink-0">
+              <img
+                :src="getLinkedDigimon(entry.digimonId)!.spriteUrl!"
+                :alt="entry.species"
+                class="max-w-full max-h-full object-contain"
+              />
+            </div>
+
             <div class="flex-1">
               <div class="flex items-center gap-3">
                 <span class="text-2xl">{{ index + 1 }}.</span>
@@ -269,6 +303,9 @@ function applyTemplate(template: typeof templates[0]) {
                   {{ entry.stage }}
                 </span>
                 <span class="text-white">{{ entry.species }}</span>
+                <span v-if="entry.digimonId" class="text-xs text-cyan-400">
+                  (linked: {{ getLinkedDigimon(entry.digimonId)?.name }})
+                </span>
               </div>
               <div v-if="entry.requirements" class="text-sm text-digimon-dark-400 mt-1">
                 Requires: {{ entry.requirements.description }}
@@ -289,7 +326,7 @@ function applyTemplate(template: typeof templates[0]) {
         <div class="border border-dashed border-digimon-dark-600 rounded-lg p-4">
           <h3 class="text-sm font-semibold text-digimon-dark-300 mb-3">Add Evolution Stage</h3>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
             <div>
               <label class="block text-xs text-digimon-dark-400 mb-1">Stage</label>
               <select
@@ -301,6 +338,23 @@ function applyTemplate(template: typeof templates[0]) {
                   {{ stage }}
                 </option>
               </select>
+            </div>
+            <div>
+              <label class="block text-xs text-digimon-dark-400 mb-1">Link Existing Digimon</label>
+              <select
+                :value="newEntry.digimonId"
+                class="w-full bg-digimon-dark-700 border border-digimon-dark-600 rounded px-3 py-2
+                       text-white text-sm focus:border-digimon-orange-500 focus:outline-none"
+                @change="handleDigimonSelect(($event.target as HTMLSelectElement).value || null)"
+              >
+                <option value="">-- Select or type manually --</option>
+                <option v-for="d in digimonForStage" :key="d.id" :value="d.id">
+                  {{ d.name }} ({{ d.species }})
+                </option>
+              </select>
+              <p v-if="digimonForStage.length === 0" class="text-xs text-digimon-dark-500 mt-1">
+                No {{ newEntry.stage }} Digimon in library
+              </p>
             </div>
             <div>
               <label class="block text-xs text-digimon-dark-400 mb-1">Species Name</label>

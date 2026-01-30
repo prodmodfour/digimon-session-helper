@@ -1,7 +1,9 @@
 import { eq, inArray } from 'drizzle-orm'
 import { db, digimon, type Digimon } from '../../db'
 
-type UpdateDigimonBody = Partial<Omit<Digimon, 'id' | 'createdAt' | 'updatedAt'>>
+type UpdateDigimonBody = Partial<Omit<Digimon, 'id' | 'createdAt' | 'updatedAt'>> & {
+  syncBonusDP?: boolean // Whether to sync bonusDP to all linked evolution forms
+}
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
@@ -79,9 +81,24 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Update digimon
+  // Sync bonusDP across all linked evolution forms if requested
+  if (body.syncBonusDP && (body.bonusDP !== undefined || body.bonusStats !== undefined || body.bonusDPForQualities !== undefined)) {
+    const linkedIds = await collectAllLinkedDigimon(id, existing)
+
+    if (linkedIds.length > 0) {
+      const dpUpdate: Record<string, unknown> = { updatedAt: now }
+      if (body.bonusDP !== undefined) dpUpdate.bonusDP = body.bonusDP
+      if (body.bonusStats !== undefined) dpUpdate.bonusStats = body.bonusStats
+      if (body.bonusDPForQualities !== undefined) dpUpdate.bonusDPForQualities = body.bonusDPForQualities
+
+      await db.update(digimon).set(dpUpdate).where(inArray(digimon.id, linkedIds))
+    }
+  }
+
+  // Update digimon (remove syncBonusDP from body as it's not a DB field)
+  const { syncBonusDP: _, ...updateFields } = body
   const updateData = {
-    ...body,
+    ...updateFields,
     updatedAt: now,
   }
 
@@ -91,3 +108,41 @@ export default defineEventHandler(async (event) => {
   const [updated] = await db.select().from(digimon).where(eq(digimon.id, id))
   return updated
 })
+
+// Helper to collect all linked Digimon IDs (ancestors and descendants)
+async function collectAllLinkedDigimon(currentId: string, current: Digimon): Promise<string[]> {
+  const linkedIds: string[] = []
+  const visited = new Set<string>([currentId])
+
+  // Collect ancestors (follow evolvesFromId chain)
+  let ancestorId = current.evolvesFromId
+  while (ancestorId && !visited.has(ancestorId)) {
+    visited.add(ancestorId)
+    linkedIds.push(ancestorId)
+    const [ancestor] = await db.select().from(digimon).where(eq(digimon.id, ancestorId))
+    if (ancestor) {
+      ancestorId = ancestor.evolvesFromId
+    } else {
+      break
+    }
+  }
+
+  // Collect descendants (follow evolutionPathIds recursively)
+  async function collectDescendants(ids: string[]) {
+    for (const id of ids) {
+      if (visited.has(id)) continue
+      visited.add(id)
+      linkedIds.push(id)
+      const [descendant] = await db.select().from(digimon).where(eq(digimon.id, id))
+      if (descendant && descendant.evolutionPathIds?.length) {
+        await collectDescendants(descendant.evolutionPathIds)
+      }
+    }
+  }
+
+  if (current.evolutionPathIds?.length) {
+    await collectDescendants(current.evolutionPathIds)
+  }
+
+  return linkedIds
+}

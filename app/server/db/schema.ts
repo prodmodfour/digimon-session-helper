@@ -131,6 +131,15 @@ export const digimon = sqliteTable('digimon', {
   dataOptimization: text('data_optimization'),
   baseDP: integer('base_dp').notNull(),
   bonusDP: integer('bonus_dp').notNull().default(0),
+  // Track bonus DP allocation per stat
+  bonusStats: text('bonus_stats', { mode: 'json' }).notNull().default('{"accuracy":0,"damage":0,"dodge":0,"armor":0,"health":0}').$type<{
+    accuracy: number
+    damage: number
+    dodge: number
+    armor: number
+    health: number
+  }>(),
+  bonusDPForQualities: integer('bonus_dp_for_qualities').notNull().default(0),
 
   currentWounds: integer('current_wounds').notNull().default(0),
   currentStance: text('current_stance').notNull().default('neutral').$type<
